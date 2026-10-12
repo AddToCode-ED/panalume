@@ -72,7 +72,13 @@
   const charging = $derived(!idle && watts > 0);
   const kwhLeft = $derived(soc != null && capacity != null ? (soc / 100) * capacity : null);
   const reserve = $derived(Number(props.reserve) || 0);
-  const clock = (mins) => new Date(Date.now() + mins * 60e3).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  // When it'll get there: the time, with the day if that's not today.
+  const clock = (mins) => {
+    const d = new Date(Date.now() + mins * 60e3), now = new Date();
+    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    const days = Math.round((new Date(d).setHours(0, 0, 0, 0) - new Date(now).setHours(0, 0, 0, 0)) / 864e5);
+    return days === 0 ? `~${time}` : days === 1 ? `tomorrow ~${time}` : `${d.toLocaleDateString([], { weekday: days < 7 ? 'long' : 'short', ...(days < 7 ? {} : { day: 'numeric', month: 'short' }) })} ~${time}`;
+  };
   const hm = (mins) => { const hh = Math.floor(mins / 60), mm = mins % 60; return hh ? `${hh}h ${mm}m` : `${mm}m`; };
   // Your own time-remaining sensor, when there is one, in place of the estimate.
   const own = $derived.by(() => {
@@ -139,12 +145,12 @@
           {idle ? 'Idle' : `${charging ? 'Charging' : 'Discharging'} ${fmtW(watts)}`}
         </div>
       {/if}
-      {#if show('time') && eta}<div class="eta"><Icon icon="mdi:timer-outline" size="1em" /> {eta.text} {eta.label} <span class="dim">(~{eta.at})</span></div>{/if}
+      {#if show('time') && eta}<div class="eta"><Icon icon="mdi:timer-outline" size="1em" /> {eta.text} {eta.label} <span class="dim">({eta.at})</span></div>{/if}
       <div class="stats">
         {#if show('health') && num(props.health) != null}<span><Icon icon="mdi:heart-pulse" size="1em" />{Math.round(num(props.health))}% health</span>{/if}
         {#if show('temp') && num(props.temp) != null}<span><Icon icon="mdi:thermometer" size="1em" />{formatNumber(num(props.temp), 1)}°</span>{/if}
-        {#if show('today') && props.in_today}<span><Icon icon="mdi:arrow-up" size="1em" />{formatNumber(num(props.in_today), 1)} in</span>{/if}
-        {#if show('today') && props.out_today}<span><Icon icon="mdi:arrow-down" size="1em" />{formatNumber(num(props.out_today), 1)} out</span>{/if}
+        {#if show('today') && props.in_today}<span><Icon icon="mdi:arrow-up" size="1em" />{formatNumber(num(props.in_today), 1)} kWh in</span>{/if}
+        {#if show('today') && props.out_today}<span><Icon icon="mdi:arrow-down" size="1em" />{formatNumber(num(props.out_today), 1)} kWh out</span>{/if}
       </div>
     </div>
     {#if wide}{@render graph()}{/if}

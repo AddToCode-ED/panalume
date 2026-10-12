@@ -1,5 +1,5 @@
 <script module>
-  import { find, myenergiPower } from '../lib/octopus.js';
+  import { find, myenergiPower, dispatches, merge } from '../lib/octopus.js';
   export const meta = {
     type: 'myenergi', name: 'Zappi / Eddi', icon: 'mdi:ev-plug-type2', category: 'Energy',
     size: { w: 400, h: 250 }, tap: 'none',
@@ -9,7 +9,7 @@
     autofill: () => {
       const z = find(/^select\.myenergi_zappi_.+_charge_mode$/);
       const p = z.replace(/^select\.(myenergi_zappi_\d+)_charge_mode$/, '$1');
-      return { mode: z, status: `sensor.${p}_status`, plug: `sensor.${p}_plug_status`, session: `sensor.${p}_charge_added_session`, power: myenergiPower(find(/^sensor\.myenergi_hub_.+_power_charging/), 'zappi', z) };
+      return { dispatching: find(/^binary_sensor\.octopus_energy_.+_intelligent_dispatching$/), mode: z, status: `sensor.${p}_status`, plug: `sensor.${p}_plug_status`, session: `sensor.${p}_charge_added_session`, power: myenergiPower(find(/^sensor\.myenergi_hub_.+_power_charging/), 'zappi', z) };
     },
     sections: [{ key: 'status', label: 'Status', section: 'status' }, { key: 'power', label: 'Power', section: 'power' }, { key: 'modes', label: 'Mode buttons' }, { key: 'boosts', label: 'Boost buttons', section: 'boosts' }],
     fields: [
@@ -24,6 +24,7 @@
       { key: 'boosts', label: 'Zappi boost kWh buttons', type: 'text' },
       { key: 'cap', label: 'Intelligent Octopus Go: track the cheap charging hours (midday to midday)', type: 'bool' },
       { key: 'cap_hours', label: 'Cheap charging hours (Intelligent Octopus Go: 6)', type: 'number' },
+      { key: 'dispatching', label: 'Intelligent dispatching sensor (only charging in a dispatch counts, not solar)', type: 'entity', domain: 'binary_sensor' },
       { key: 'eddi_target', label: 'Eddi boost heater', type: 'text' },
       { key: 'eddi_minutes', label: 'Eddi boost minute buttons', type: 'text' },
     ],
@@ -65,6 +66,14 @@
   const hist = useHistory(() => (capOn ? [power.entity_id] : []), () => 24.5);
   const since = $derived.by(() => { const d = new Date(clock.now); if (d.getHours() < 12) d.setDate(d.getDate() - 1); d.setHours(12, 0, 0, 0); return +d; });
   const watts = (v) => (/^kw$/i.test(power?.attributes.unit_of_measurement || '') ? v * 1000 : v);
+  // With the Intelligent dispatching sensor, only charging inside Octopus's
+  // dispatches counts (charging from solar or outside a dispatch doesn't).
+  const periods = $derived.by(() => {
+    if (!capOn || !props.dispatching) return null;
+    const d = dispatches(props.dispatching);
+    const cur = d.a.current_start && d.a.current_end ? [{ start: Date.parse(d.a.current_start), end: Date.parse(d.a.current_end) }] : [];
+    return merge([...d.completed, ...d.planned, ...cur]);
+  });
   const usedMs = $derived.by(() => {
     const pts = capOn ? hist.series[power.entity_id] || [] : [];
     let ms = 0;
@@ -72,7 +81,8 @@
       const [t0, v] = pts[i];
       const t1 = i + 1 < pts.length ? pts[i + 1][0] : clock.now;
       const a = Math.max(t0, since), b = Math.min(t1, clock.now);
-      if (b > a && watts(v) >= 500) ms += b - a;
+      if (b <= a || watts(v) < 500) continue;
+      ms += periods ? periods.reduce((n, q) => n + Math.max(0, Math.min(b, q.end) - Math.max(a, q.start)), 0) : b - a;
     }
     return ms;
   });

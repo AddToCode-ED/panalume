@@ -8,6 +8,9 @@
   import { isTpl } from '../lib/tpl.js';
   let { obj, f, onset, hide = null, ontoggle } = $props();
   const set = (v) => { if (onset) return onset(v); obj[f.key] = v; changed(); };
+  // Ready-made colours for colour-button settings (click to add / remove, in order).
+  const PALETTE = [['Red', '#ff4d4d'], ['Orange', '#ff9a3c'], ['Amber', '#ffc861'], ['Yellow', '#fff35c'], ['Lime', '#b6f25c'], ['Green', '#5bd88f'], ['Teal', '#2ed3c4'], ['Cyan', '#4fe0ff'],
+    ['Sky blue', '#4fb4ff'], ['Blue', '#4f6bff'], ['Indigo', '#7a6bff'], ['Purple', '#b48cff'], ['Magenta', '#ff5cd6'], ['Pink', '#ff8fb1'], ['Warm white', '#ffd7a8'], ['Cool white', '#e6f0ff']];
   const hex = (v) => (/^#[0-9a-f]{6}$/i.test(v || '') ? v : '#7aa2ff');
 </script>
 
@@ -52,6 +55,16 @@
       <input type="color" value={hex(obj[f.key])} oninput={(e) => set(e.currentTarget.value)} />
       <input id={f.key} type="text" value={obj[f.key] ?? ''} placeholder={f.placeholder || 'colour / css / template'} oninput={(e) => set(e.currentTarget.value)} />
     </div>
+  {:else if f.type === 'swatches'}
+    {@const picked = String(obj[f.key] || f.placeholder || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean)}
+    <div class="pal">
+      {#each PALETTE as [name, c]}
+        {@const on = picked.includes(c)}
+        <button type="button" class="pc" class:on style="background:{c}" title={name} aria-label={name} aria-pressed={on}
+          onclick={() => set((on ? picked.filter((x) => x !== c) : [...picked, c]).join(', '))}>{#if on}{picked.indexOf(c) + 1}{/if}</button>
+      {/each}
+    </div>
+    <input id={f.key} type="text" value={obj[f.key] ?? ''} placeholder={f.placeholder || ''} oninput={(e) => set(e.currentTarget.value)} />
   {:else if f.type === 'icon'}
     <IconPicker bind:value={() => obj[f.key] || '', (v) => (obj[f.key] = v)} onchange={changed} />
   {:else if f.type === 'textarea'}
@@ -67,6 +80,9 @@
   .eye { margin-left: auto; background: none; border: 0; color: var(--accent); padding: 0 2px; display: grid; }
   .eye.off { color: var(--muted); opacity: .6; }
   .field:has(.eye.off) :global(input) { opacity: .5; }
+  .pal { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; margin-bottom: 4px; }
+  .pc { aspect-ratio: 1; border-radius: 50%; border: 2px solid transparent; padding: 0; font-size: 10px; font-weight: 700; color: #0b0f16; cursor: pointer; }
+  .pc.on { border-color: #fff; box-shadow: 0 0 0 2px rgba(0,0,0,.4); }
   .tpl { background: rgba(122,162,255,.2); color: #a9c1ff; border-radius: 6px; padding: 0 5px; font-size: 10px; }
   .chk { color: var(--text); font-size: 13px; cursor: pointer; }
   .color { display: flex; gap: 6px; }

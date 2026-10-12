@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.29.0
+
+- **Cameras come back after the screen's been off.** Tablets that turn their screen off (e.g. Fully Kiosk with the lights) could come back to "Video stream failed" or no picture. Cameras now start afresh when the screen comes back on (Fully Kiosk's screen-on too, with its JavaScript interface enabled), restart by themselves if nothing new has shown for 90 seconds, and a dropped video stream is retried instead of giving up.
+- **Blink cameras update.** Blink only keeps the last picture it took; the camera card now asks for a new one on each refresh (**Take a new picture each refresh**, on by default for Blink; each picture uses the camera's battery, so use a long refresh).
+- **Zappi card: cheap hours only count in a dispatch.** Set the new **Intelligent dispatching sensor** and only charging during an Octopus dispatch counts towards the 6 cheap hours, so charging from solar no longer uses them up.
+- **Home battery card:** the time it'll be full / empty shows the day when it isn't today (e.g. *Tuesday ~12:15*), and today's in / out show kWh.
+- **Energy usage card:** a second live solar and battery sensor, and units on every figure (kW live, kWh for the totals and each hour).
+- **Light card:** pick the colour buttons from a palette of named colours instead of typing colour codes.
+- **Sidebar for everyone, automatically.** After an update that changes who can open Panalume, the app re-adds its sidebar entry itself, so non-admin users get it without turning *Show in sidebar* off and on.
+
 ## 0.28.0
 
 - **Panalume is in every user's sidebar.** Home Assistant users who aren't admins can now open it too (before, the sidebar entry was admin-only).

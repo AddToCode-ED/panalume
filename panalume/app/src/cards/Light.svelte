@@ -11,7 +11,7 @@
       { key: 'entity', label: 'Light', type: 'entity', domain: 'light' },
       { key: 'name', label: 'Name', type: 'text' },
       { key: 'icon', label: 'Icon', type: 'icon' },
-      { key: 'colours', label: 'Colour buttons (CSS colours, comma separated)', type: 'text', section: 'colours', placeholder: '#ff6b6b, #ffc861, #5bd88f, #4fb4ff, #b48cff' },
+      { key: 'colours', label: 'Colour buttons (pick up to 6, or type colours)', type: 'swatches', section: 'colours', placeholder: '#ff4d4d, #ffc861, #5bd88f, #4fb4ff, #b48cff' },
     ],
   };
 </script>
@@ -39,7 +39,7 @@
   // Light groups: how many members are on.
   const members = $derived(Array.isArray(a.entity_id) ? a.entity_id : null);
   const membersOn = $derived(members ? members.filter((m) => states.get(m)?.state === 'on').length : 0);
-  const swatches = $derived(String(t(props.colours) || '#ff6b6b, #ffc861, #5bd88f, #4fb4ff, #b48cff').split(',').map((s) => s.trim()).filter(Boolean).slice(0, 6));
+  const swatches = $derived(String(t(props.colours) || '#ff4d4d, #ffc861, #5bd88f, #4fb4ff, #b48cff').split(',').map((s) => s.trim()).filter(Boolean).slice(0, 6));
   function hexRgb(c) {
     const m = c.match(/^#([0-9a-f]{6})$/i);
     if (!m) return null;

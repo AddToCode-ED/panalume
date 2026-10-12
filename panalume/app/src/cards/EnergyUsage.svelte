@@ -22,6 +22,9 @@
       { key: 'solar_power', label: 'Solar power', type: 'entity', domain: 'sensor', section: 'live' },
       { key: 'battery_power', label: 'Battery power (+discharge / −charge)', type: 'entity', domain: 'sensor', section: 'live' },
       { key: 'battery_invert', label: 'Invert battery sign', type: 'bool' },
+      { key: 'solar_power_2', label: 'Second solar power (optional)', type: 'entity', domain: 'sensor', section: 'live' },
+      { key: 'battery_power_2', label: 'Second battery power (optional)', type: 'entity', domain: 'sensor', section: 'live' },
+      { key: 'battery_2_invert', label: 'Invert second battery sign', type: 'bool' },
       { key: 'import_price', label: 'Import price now (blank = from Energy settings)', type: 'entity', domain: 'sensor', section: 'prices' },
       { key: 'export_price', label: 'Export price now (blank = from Energy settings)', type: 'entity', domain: 'sensor', section: 'prices' },
     ],
@@ -95,9 +98,14 @@
   // Live power in kW (sensors in W or kW).
   const kw = (id, inv) => { const e = ent(id); const v = Number(e?.state); if (!Number.isFinite(v)) return null; const k = /^kw$/i.test(e.attributes.unit_of_measurement || '') ? v : v / 1000; return inv ? -k : k; };
   const gridKw = $derived(kw(props.grid_power, props.grid_invert));
-  const solarKw = $derived(Math.max(0, kw(props.solar_power) ?? 0));
-  const battKw = $derived(kw(props.battery_power, props.battery_invert));
-  const homeKw = $derived(gridKw == null && !props.solar_power ? null : Math.max(0, (gridKw ?? 0) + solarKw + (battKw ?? 0)));
+  // Live figures add up a second solar array / battery if given (the hourly bars
+  // already include every source in HA's Energy settings).
+  const solarKw = $derived(Math.max(0, kw(props.solar_power) ?? 0) + Math.max(0, kw(props.solar_power_2) ?? 0));
+  const battKw = $derived.by(() => {
+    const a = kw(props.battery_power, props.battery_invert), b = kw(props.battery_power_2, props.battery_2_invert);
+    return a == null && b == null ? null : (a ?? 0) + (b ?? 0);
+  });
+  const homeKw = $derived(gridKw == null && !props.solar_power && !props.solar_power_2 ? null : Math.max(0, (gridKw ?? 0) + solarKw + (battKw ?? 0)));
 
   // Per-hour kWh for each flow, plus a live top-up after the last statistic.
   const hours = $derived.by(() => {
@@ -162,9 +170,9 @@
     {#if show('live') && homeKw != null && props.day !== 'yesterday'}
       <div class="live">
         <span class="dot"></span>Using <b>{homeKw.toFixed(1)} kW</b>
-        {#if solarKw > 0.05}<span style="color:{C.solar}">☀ {solarKw.toFixed(1)}</span>{/if}
-        {#if gridKw != null && Math.abs(gridKw) > 0.05}<span style="color:{gridKw > 0 ? C.grid : C.export}">{gridKw > 0 ? '↓ grid' : '↑ export'} {Math.abs(gridKw).toFixed(1)}</span>{/if}
-        {#if battKw != null && Math.abs(battKw) > 0.05}<span style="color:{battKw > 0 ? C.battery : C.charge}">{battKw > 0 ? 'battery' : 'charging'} {Math.abs(battKw).toFixed(1)}</span>{/if}
+        {#if solarKw > 0.05}<span style="color:{C.solar}">☀ {solarKw.toFixed(1)} kW</span>{/if}
+        {#if gridKw != null && Math.abs(gridKw) > 0.05}<span style="color:{gridKw > 0 ? C.grid : C.export}">{gridKw > 0 ? '↓ grid' : '↑ export'} {Math.abs(gridKw).toFixed(1)} kW</span>{/if}
+        {#if battKw != null && Math.abs(battKw) > 0.05}<span style="color:{battKw > 0 ? C.battery : C.charge}">{battKw > 0 ? 'battery' : 'charging'} {Math.abs(battKw).toFixed(1)} kW</span>{/if}
         {#if show('prices') && priceIn != null}<span class="price">{pence(priceIn)}/kWh{#if priceOut != null}{' · export '}{pence(priceOut)}{/if}</span>{/if}
       </div>
     {/if}
@@ -174,10 +182,10 @@
 
   {#if show('totals')}
     <div class="tots">
-      <div><b>{f(used)}</b><span>kWh used</span></div>
-      <div><b style="color:{C.grid}">{f(tot.imported)}</b><span>from grid</span></div>
-      <div><b style="color:{C.solar}">{f(tot.produced)}</b><span>solar</span></div>
-      {#if tot.export > 0.05}<div><b style="color:{C.export}">{f(tot.export)}</b><span>exported</span></div>{/if}
+      <div><b>{f(used)}<small>kWh</small></b><span>used</span></div>
+      <div><b style="color:{C.grid}">{f(tot.imported)}<small>kWh</small></b><span>from grid</span></div>
+      <div><b style="color:{C.solar}">{f(tot.produced)}<small>kWh</small></b><span>solar</span></div>
+      {#if tot.export > 0.05}<div><b style="color:{C.export}">{f(tot.export)}<small>kWh</small></b><span>exported</span></div>{/if}
       {#if selfSuff != null}<div><b>{selfSuff}%</b><span>self-sufficient</span></div>{/if}
       {#if show('prices') && hasMoney}<div><b>{gbp(money.cost - money.comp)}</b><span>{gbp(money.cost)} cost{#if money.comp > 0.005}{' · '}{gbp(money.comp)} earned{/if}</span></div>{/if}
     </div>
@@ -218,12 +226,11 @@
       {@const x = hours[shown]}
       <div class="hr">
         <b>{String(shown).padStart(2, '0')}:00{shown === curHour ? ' (now)' : ''}</b>
-        <span><i style="background:{C.grid}"></i>grid {x.grid.toFixed(2)}</span>
-        <span><i style="background:{C.solar}"></i>solar {x.solar.toFixed(2)}</span>
-        {#if x.battery > 0.005}<span><i style="background:{C.battery}"></i>battery {x.battery.toFixed(2)}</span>{/if}
-        {#if x.export > 0.005}<span><i style="background:{C.export}"></i>export {x.export.toFixed(2)}</span>{/if}
-        {#if x.charge > 0.005}<span><i style="background:{C.charge}"></i>charging {x.charge.toFixed(2)}</span>{/if}
-        <span class="dim">kWh</span>
+        <span><i style="background:{C.grid}"></i>grid {x.grid.toFixed(2)} kWh</span>
+        <span><i style="background:{C.solar}"></i>solar {x.solar.toFixed(2)} kWh</span>
+        {#if x.battery > 0.005}<span><i style="background:{C.battery}"></i>battery {x.battery.toFixed(2)} kWh</span>{/if}
+        {#if x.export > 0.005}<span><i style="background:{C.export}"></i>export {x.export.toFixed(2)} kWh</span>{/if}
+        {#if x.charge > 0.005}<span><i style="background:{C.charge}"></i>charging {x.charge.toFixed(2)} kWh</span>{/if}
         {#if show('prices') && hasMoney && (x.cost > 0.005 || x.comp > 0.005)}<span class="cost">{gbp(x.cost)}{#if x.rate != null}{' at '}{pence(x.rate)}{/if}{#if x.comp > 0.005}{' · earned '}{gbp(x.comp)}{/if}</span>{/if}
       </div>
     {/if}
@@ -248,6 +255,7 @@
   .tots { display: flex; gap: 8px; flex-wrap: wrap; }
   .tots div { flex: 1; min-width: 70px; background: rgba(255,255,255,.05); border-radius: 12px; padding: 6px 10px; display: flex; flex-direction: column; }
   .tots b { font-size: 1.25em; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .tots b small { font-size: .55em; font-weight: 500; color: var(--muted); margin-left: .2em; }
   .tots span { font-size: .72em; color: var(--muted); }
   .chart { flex: 1; min-height: 80px; position: relative; }
   svg { position: absolute; inset: 0; overflow: visible; }

@@ -289,5 +289,26 @@ async function adoptGlasshouse() {
   }
 }
 
+// Home Assistant keeps the sidebar entry it registered when the app was first
+// shown there, including whether it's admin-only. Re-add it once per version
+// (as turning "Show in sidebar" off and on would), so a change to who can open
+// it (e.g. all users since 0.28.0) takes effect without anyone doing anything.
+async function refreshPanel() {
+  if (!SUP) return;
+  const sup = (p, init) => fetch(`http://supervisor${p}`, { ...init, headers: { Authorization: `Bearer ${SUP}`, 'Content-Type': 'application/json' } }).then((r) => r.json());
+  try {
+    const info = (await sup('/addons/self/info')).data;
+    const mark = path.join(DATA, 'panel-version');
+    if (!info?.ingress_panel || (fs.existsSync(mark) && fs.readFileSync(mark, 'utf8') === info.version)) return;
+    const r = await sup('/addons/self/options', { method: 'POST', body: JSON.stringify({ ingress_panel: true }) });
+    if (r.result !== 'ok') throw new Error(r.message || 'refused');
+    fs.writeFileSync(mark, info.version);
+    console.log('Sidebar entry refreshed');
+  } catch (e) {
+    console.error('Could not refresh the sidebar entry:', e.message);
+  }
+}
+
 server.listen(PORT, () => console.log(`Panalume on :${PORT} -> ${HA_URL}`));
 adoptGlasshouse();
+refreshPanel();

@@ -9,6 +9,7 @@
       { key: 'show_name', label: 'Show name', type: 'bool' },
       { key: 'mode', label: 'Mode', type: 'select', options: [{ value: 'snapshot', label: 'Snapshot' }, { value: 'live', label: 'Live' }, { value: 'video', label: 'Video stream (for cameras whose pictures fail)' }] },
       { key: 'refresh', label: 'Snapshot refresh (s)', type: 'number' },
+      { key: 'trigger', label: 'Take a new picture each refresh (Blink: on unless unticked; uses the camera battery)', type: 'bool' },
       { key: 'fit', label: 'Fit', type: 'select', options: [{ value: 'auto', label: 'Auto' }, { value: 'crop', label: 'Fill the card (crops edges)' }, { value: 'contain', label: 'Whole picture' }] },
     ],
   };
@@ -17,7 +18,7 @@
 <script>
   import { t, ent } from '../lib/tpl.js';
   import { name } from '../lib/entity.js';
-  import { haImage, send } from '../lib/ha.svelte.js';
+  import { haImage, send, callService } from '../lib/ha.svelte.js';
   let { props, w = 0, h = 0 } = $props();
   const e = $derived(ent(props.entity));
   // Just the id, so attribute updates (e.g. the rotating access token) don't restart streams.
@@ -32,6 +33,22 @@
   let broken = $state(false);
   let vid = $state();
   let tick = $state(0);
+  // Screen back on (tab visible again, or Fully Kiosk's screen-on): start the
+  // camera afresh. Streams and pictures that failed while it was off are
+  // forgotten, and a camera that fell back to video tries pictures again.
+  let wake = $state(0);
+  let lastOk = Date.now();
+  $effect(() => {
+    let hiddenAt = 0;
+    const back = () => { failed = 0; broken = false; tick++; wake++; };
+    const vis = () => { if (document.visibilityState === 'hidden') hiddenAt = Date.now(); else if (hiddenAt) { hiddenAt = 0; back(); } };
+    document.addEventListener('visibilitychange', vis);
+    window.addEventListener('panalume-wake', back);
+    // Watchdog: some kiosks keep the page "visible" with the screen off, so also
+    // start afresh if nothing new has shown for 90 s.
+    const dog = setInterval(() => { if (document.visibilityState === 'visible' && Date.now() - lastOk > Math.max(90, 3 * (Number(props.refresh) || 5)) * 1000) { lastOk = Date.now(); back(); } }, 15e3);
+    return () => { clearInterval(dog); document.removeEventListener('visibilitychange', vis); window.removeEventListener('panalume-wake', back); };
+  });
   let shown = $state('');
   let ratio = $state(0);
   // Auto (also older cards saved as 'cover'): fill the card unless the picture's
@@ -43,11 +60,22 @@
     const r = ratio / (w / h);
     return Math.max(r, 1 / r) > 1.25 ? 'contain' : 'cover';
   });
+  const trigger = $derived(!!camId && (props.trigger ?? e?.attributes.brand === 'Blink'));
   // Snapshots: poll, double-buffered so the picture never flashes blank.
   $effect(() => {
     if (live || video) return;
-    const i = setInterval(() => document.visibilityState === 'visible' && tick++, Math.max(1, Number(props.refresh) || 5) * 1000);
-    return () => clearInterval(i);
+    // Blink (and similar) cameras only keep the last picture they took: ask for
+    // a new one, then fetch it once it's had time to arrive.
+    const trig = trigger, id = camId;
+    const later = [];
+    const i = setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      tick++;
+      if (!trig) return;
+      callService('blink', 'trigger_camera', {}, { entity_id: id });
+      later.push(setTimeout(() => tick++, 6000), setTimeout(() => tick++, 15000));
+    }, Math.max(trig ? 30 : 1, Number(props.refresh) || 5) * 1000);
+    return () => { clearInterval(i); later.forEach(clearTimeout); };
   });
   const src = $derived.by(() => {
     if (!e) return '';
@@ -58,7 +86,7 @@
     const s = src;
     if (!s || live || video) return;
     const img = new Image();
-    img.onload = () => { shown = s; failed = 0; };
+    img.onload = () => { shown = s; failed = 0; lastOk = Date.now(); };
     img.onerror = () => failed++;
     img.src = s;
     return () => (img.onload = img.onerror = null);
@@ -67,6 +95,7 @@
   // the stream drops and pausing while the screen is hidden.
   $effect(() => {
     if (!live) return;
+    wake;
     const id = camId;
     const base = location.pathname.replace(/[^/]*$/, '');
     const url = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}${base}api/camera?entity=${encodeURIComponent(id)}`;
@@ -79,6 +108,7 @@
       ws.onmessage = (ev) => {
         backoff = 1000;
         failed = 0;
+        lastOk = Date.now();
         clearTimeout(none);
         const u = URL.createObjectURL(new Blob([ev.data], { type: 'image/jpeg' }));
         shown = u;
@@ -113,27 +143,46 @@
   let vidErr = $state(''), playing = $state(false);
   $effect(() => {
     if (!video || !vid) return;
+    wake;
     const id = camId, el = vid;
-    let hls, stopped = false;
+    let hls, stopped = false, retry, tries = 0, slow;
     vidErr = '';
     playing = false;
-    const slow = setTimeout(() => { if (!playing) vidErr = "The camera's video didn't start"; }, 45000);
-    send({ type: 'camera/stream', entity_id: id }).then(async (r) => {
+    // A stream that drops (HA stops streams nobody's watching, e.g. while the
+    // screen was off) is asked for again, waiting a little longer each time.
+    const again = (why) => {
+      hls?.destroy(); hls = null;
       if (stopped) return;
-      const src = 'ha' + r.url;
-      const { default: Hls } = await import('hls.js');
-      if (stopped) return;
-      // hls.js wherever it works; older iPhones / iPads only play HLS natively.
-      if (!Hls.isSupported()) el.src = src;
-      else {
-        hls = new Hls({ liveSyncDurationCount: 2 });
-        hls.on(Hls.Events.ERROR, (_, d) => { if (d.fatal) vidErr = 'Video stream failed'; });
-        hls.loadSource(src);
-        hls.attachMedia(el);
-      }
-      el.play?.().catch(() => {});
-    }).catch((err) => { if (!stopped) vidErr = err?.message || 'This camera has no video stream'; });
-    return () => { stopped = true; clearTimeout(slow); hls?.destroy(); el.removeAttribute('src'); el.load?.(); };
+      vidErr = tries >= 2 ? why : '';
+      playing = false;
+      retry = setTimeout(start, Math.min(15, 3 * 2 ** tries++) * 1000);
+    };
+    const start = () => {
+      if (stopped || document.visibilityState === 'hidden') return;
+      clearTimeout(slow);
+      slow = setTimeout(() => { if (!playing) again("The camera's video didn't start"); }, 45000);
+      send({ type: 'camera/stream', entity_id: id }).then(async (r) => {
+        if (stopped) return;
+        const src = 'ha' + r.url;
+        const { default: Hls } = await import('hls.js');
+        if (stopped) return;
+        // hls.js wherever it works; older iPhones / iPads only play HLS natively.
+        if (!Hls.isSupported()) el.src = src;
+        else {
+          hls = new Hls({ liveSyncDurationCount: 2 });
+          hls.on(Hls.Events.ERROR, (_, d) => { if (d.fatal) again('Video stream failed, retrying…'); });
+          hls.loadSource(src);
+          hls.attachMedia(el);
+        }
+        el.play?.().catch(() => {});
+      }).catch((err) => { if (!stopped) again(err?.message || 'This camera has no video stream'); });
+    };
+    const ok = () => { tries = 0; vidErr = ''; };
+    const progress = () => (lastOk = Date.now());
+    el.addEventListener('timeupdate', progress);
+    el.addEventListener('playing', ok);
+    start();
+    return () => { stopped = true; clearTimeout(slow); clearTimeout(retry); el.removeEventListener('playing', ok); el.removeEventListener('timeupdate', progress); hls?.destroy(); el.removeAttribute('src'); el.load?.(); };
   });
 </script>
 

@@ -58,6 +58,8 @@
   // Hide HA's header bar: per device (Layout tab) or ?kiosk / ?kiosk=0 in the URL.
   const kioskParam = param('kiosk');
   // ?noedit: no pencil and no E shortcut (wall tablets that shouldn't be edited).
+  // Fully Kiosk (with its JavaScript interface on) tells us when the screen comes back on.
+  try { window.fully?.bind?.('screenOn', "window.dispatchEvent(new Event('panalume-wake'))"); } catch {}
   const noEditParam = param('noedit') != null && param('noedit') !== '0';
   // Only Home Assistant admins can edit (the server checks too).
   fetch('api/me').then((r) => r.json()).then((m) => { app.canEdit = m.admin !== false; if (!app.canEdit) app.editing = false; }).catch(() => {});
