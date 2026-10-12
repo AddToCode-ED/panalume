@@ -83,6 +83,8 @@ export function detectDevice() {
 }
 
 export const app = $state({
+  // False for Home Assistant users who aren't admins: they can use the dashboard but not edit it.
+  canEdit: true,
   config: null,
   device: detectDevice(),
   view: (location.hash.slice(1) || 'home'),
@@ -200,6 +202,7 @@ export function changed() {
 
 export async function save() {
   clearTimeout(saveTimer);
+  if (!app.canEdit) return;
   app.saving = true;
   const body = JSON.stringify($state.snapshot(app.config));
   try {

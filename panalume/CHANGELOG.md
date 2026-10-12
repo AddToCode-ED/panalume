@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.28.0
+
+- **Panalume is in every user's sidebar.** Home Assistant users who aren't admins can now open it too (before, the sidebar entry was admin-only).
+- **Only admins can edit.** Other users get the dashboard without the edit pencil, and the app won't save layout changes from them.
+- Note: Panalume talks to Home Assistant with its own access, not each user's, so a restricted user can see and control whatever is on the dashboard.
+
 ## 0.27.5
 
 - **Thermostat card: no more "Idle" for units that don't say what they're doing.** Some units (e.g. Tuya air conditioners, and most water heaters) only report their mode, not whether they're heating or cooling right now, and the card showed them as Idle. It now shows their mode instead (Heat, Cool, Dry…).

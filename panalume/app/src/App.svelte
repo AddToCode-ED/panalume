@@ -58,7 +58,10 @@
   // Hide HA's header bar: per device (Layout tab) or ?kiosk / ?kiosk=0 in the URL.
   const kioskParam = param('kiosk');
   // ?noedit: no pencil and no E shortcut (wall tablets that shouldn't be edited).
-  const noEdit = param('noedit') != null && param('noedit') !== '0';
+  const noEditParam = param('noedit') != null && param('noedit') !== '0';
+  // Only Home Assistant admins can edit (the server checks too).
+  fetch('api/me').then((r) => r.json()).then((m) => { app.canEdit = m.admin !== false; if (!app.canEdit) app.editing = false; }).catch(() => {});
+  const noEdit = $derived(noEditParam || !app.canEdit);
   // No sidebar and no Navigation card on this view: a small views menu instead,
   // so there's always a way to switch views.
   let viewsOpen = $state(false);

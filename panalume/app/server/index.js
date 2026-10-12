@@ -44,6 +44,32 @@ function iconPath(name) {
   return mdi[key] || null;
 }
 
+// Who may edit: Home Assistant admins. Ingress tells us who's looking
+// (X-Remote-User-Id); the direct port has no HA login, so it's left open.
+let users = { at: 0, admins: null };
+async function haUsers() {
+  if (Date.now() - users.at < 60e3 && users.admins) return users.admins;
+  const list = await new Promise((ok, fail) => {
+    const ws = new WebSocket(HA_URL.replace(/^http/, 'ws') + '/api/websocket');
+    const t = setTimeout(() => { ws.terminate(); fail(new Error('timeout')); }, 8000);
+    ws.on('error', (e) => { clearTimeout(t); fail(e); });
+    ws.on('message', (d) => {
+      const m = JSON.parse(d);
+      if (m.type === 'auth_required') ws.send(JSON.stringify({ type: 'auth', access_token: TOKEN }));
+      else if (m.type === 'auth_ok') ws.send(JSON.stringify({ id: 1, type: 'config/auth/list' }));
+      else if (m.type === 'auth_invalid') { clearTimeout(t); ws.close(); fail(new Error('auth')); }
+      else if (m.type === 'result') { clearTimeout(t); ws.close(); m.success ? ok(m.result) : fail(new Error(m.error?.message || 'users')); }
+    });
+  });
+  users = { at: Date.now(), admins: new Set(list.filter((u) => u.is_owner || u.group_ids?.includes('system-admin')).map((u) => u.id)) };
+  return users.admins;
+}
+async function isAdmin(req) {
+  const id = req.headers['x-remote-user-id'];
+  if (!id) return true;
+  try { return (await haUsers()).has(id); } catch (e) { console.error('user check:', e.message); return true; }
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   const p = url.pathname;
@@ -51,6 +77,7 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/config') {
       if (req.method === 'GET') return send(res, 200, fs.existsSync(CONFIG) ? fs.readFileSync(CONFIG) : 'null');
       if (req.method === 'PUT') {
+        if (!(await isAdmin(req))) return send(res, 403, '{"error":"Only Home Assistant admins can change the dashboard"}');
         let body = '';
         for await (const c of req) body += c;
         JSON.parse(body);
@@ -60,6 +87,7 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, '{"ok":true}');
       }
     }
+    if (p === '/api/me') return send(res, 200, JSON.stringify({ admin: await isAdmin(req), name: req.headers['x-remote-user-display-name'] || null }));
     if (p === '/api/icons') {
       const out = {};
       for (const n of (url.searchParams.get('n') || '').split(',').slice(0, 200)) if (n) out[n] = iconPath(n);
