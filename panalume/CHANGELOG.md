@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.30.1
+
+- Weather card: today's high and low now sit beside the temperature instead of under it, so they no longer push the forecast off the bottom of a small card.
+
 ## 0.30.0
 
 - **Live cameras are real live video.** Live mode used to be a stream of still pictures, which some cameras (e.g. Generic Camera) only give out every few seconds. It now plays the camera's video the way Home Assistant's own dashboard does: WebRTC first (near-instant), then HLS, and only falls back to pictures for cameras that can't stream. Full screen uses it too, and the last picture shows while the video starts.

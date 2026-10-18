@@ -52,8 +52,10 @@
   <div class="now">
     {#if show('icon')}<Icon icon={WX[e?.state] || 'mdi:weather-cloudy'} size="3.2em" />{/if}
     <div>
-      {#if show('temp')}<div class="temp">{a.temperature != null ? Math.round(a.temperature) + '°' : '—'}</div>{/if}
-      {#if today}<div class="hl"><span>↑ {Math.round(today.temperature)}°</span>{#if today.templow != null}<span class="lo">↓ {Math.round(today.templow)}°</span>{/if}</div>{/if}
+      <div class="trow">
+        {#if show('temp')}<div class="temp">{a.temperature != null ? Math.round(a.temperature) + '°' : '—'}</div>{/if}
+        {#if today}<div class="hl"><span>↑ {Math.round(today.temperature)}°</span>{#if today.templow != null}<span class="lo">↓ {Math.round(today.templow)}°</span>{/if}</div>{/if}
+      </div>
       {#if show('cond')}<div class="cond">{t(props.name) || COND[e?.state] || (e?.state || '').replace(/-/g, ' ')}</div>{/if}
     </div>
     <div class="extra">
@@ -79,7 +81,9 @@
   .wx { height: 100%; display: flex; flex-direction: column; justify-content: space-between; gap: 8px; }
   .now { display: flex; align-items: center; gap: 14px; }
   .temp { font-size: 2.2em; font-weight: 600; line-height: 1; }
-  .hl { display: flex; gap: 8px; font-size: .85em; font-weight: 600; margin-top: 2px; }
+  /* Today's high / low sit beside the temperature, so they take no extra height. */
+  .trow { display: flex; align-items: center; gap: 8px; }
+  .hl { display: flex; flex-direction: column; font-size: .78em; font-weight: 600; line-height: 1.2; }
   .cond { color: var(--muted); text-transform: capitalize; font-size: .9em; }
   .extra { margin-left: auto; display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: .85em; text-align: right; }
   .extra span { display: flex; align-items: center; gap: 4px; justify-content: flex-end; }
