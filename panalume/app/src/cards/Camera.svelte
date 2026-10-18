@@ -18,7 +18,7 @@
 <script>
   import { t, ent } from '../lib/tpl.js';
   import { name } from '../lib/entity.js';
-  import { haImage, send, callService } from '../lib/ha.svelte.js';
+  import { haImage, send, callService, subscribe } from '../lib/ha.svelte.js';
   let { props, w = 0, h = 0 } = $props();
   const e = $derived(ent(props.entity));
   // Just the id, so attribute updates (e.g. the rotating access token) don't restart streams.
@@ -28,8 +28,21 @@
   // HA's video stream (HLS, as HA's own dashboard plays it) after two failures.
   const canStream = $derived(((e?.attributes.supported_features ?? 0) & 2) === 2);
   let failed = $state(0);
-  const video = $derived(!!camId && (props.mode === 'video' || (canStream && failed >= 2)));
-  const live = $derived(props.mode === 'live' && !!camId && !video);
+  // What the camera can stream to a browser (HA's camera/capabilities):
+  // 'web_rtc' (near-instant, what HA's own dashboard uses) and / or 'hls'.
+  // null while asking; [] for cameras that can't stream.
+  let caps = $state(null);
+  let noStream = $state(false);
+  $effect(() => {
+    const id = camId;
+    caps = null; noStream = false;
+    if (!id || !canStream) return void (caps = []);
+    send({ type: 'camera/capabilities', entity_id: id }).then((r) => (caps = r?.frontend_stream_types || []), () => (caps = []));
+  });
+  // Live uses the camera's real video stream when it has one; otherwise (or if
+  // that fails) a stream of pictures. Video mode always uses the stream.
+  const video = $derived(!!camId && (props.mode === 'video' || (canStream && failed >= 2) || (props.mode === 'live' && !!caps?.length && !noStream)));
+  const live = $derived(props.mode === 'live' && !!camId && !video && caps != null);
   let broken = $state(false);
   let vid = $state();
   let tick = $state(0);
@@ -139,57 +152,109 @@
       if (url0) setTimeout(() => URL.revokeObjectURL(url0), 1000);
     };
   });
-  // Video: ask HA for an HLS stream and play it.
+  // Video: WebRTC where the camera offers it, else HLS. Each is tried in turn;
+  // if neither plays, Live drops back to pictures and Video mode retries,
+  // waiting a little longer each time (HA stops streams nobody's watching,
+  // e.g. while the screen was off).
   let vidErr = $state(''), playing = $state(false);
   $effect(() => {
     if (!video || !vid) return;
     wake;
-    const id = camId, el = vid;
-    let hls, stopped = false, retry, tries = 0, slow;
+    const id = camId, el = vid, kinds = caps;
+    const order = kinds?.length ? ['web_rtc', 'hls'].filter((k) => kinds.includes(k)) : ['hls'];
+    let stop = null, stopped = false, retry, tries = 0, slow, step = 0;
     vidErr = '';
     playing = false;
-    // A stream that drops (HA stops streams nobody's watching, e.g. while the
-    // screen was off) is asked for again, waiting a little longer each time.
-    const again = (why) => {
-      hls?.destroy(); hls = null;
+    const end = () => { stop?.(); stop = null; clearTimeout(slow); el.srcObject = null; el.removeAttribute('src'); el.load?.(); };
+    const next = (why) => {
+      end();
       if (stopped) return;
-      vidErr = tries >= 2 ? why : '';
       playing = false;
+      if (++step < order.length) return start();
+      step = 0;
+      if (props.mode === 'live' && failed < 2) return void (noStream = true);
+      vidErr = tries >= 2 ? why : '';
       retry = setTimeout(start, Math.min(15, 3 * 2 ** tries++) * 1000);
     };
     const start = () => {
       if (stopped || document.visibilityState === 'hidden') return;
-      clearTimeout(slow);
-      slow = setTimeout(() => { if (!playing) again("The camera's video didn't start"); }, 45000);
-      send({ type: 'camera/stream', entity_id: id }).then(async (r) => {
-        if (stopped) return;
-        const src = 'ha' + r.url;
-        const { default: Hls } = await import('hls.js');
-        if (stopped) return;
-        // hls.js wherever it works; older iPhones / iPads only play HLS natively.
-        if (!Hls.isSupported()) el.src = src;
-        else {
-          hls = new Hls({ liveSyncDurationCount: 2 });
-          hls.on(Hls.Events.ERROR, (_, d) => { if (d.fatal) again('Video stream failed, retrying…'); });
-          hls.loadSource(src);
-          hls.attachMedia(el);
-        }
-        el.play?.().catch(() => {});
-      }).catch((err) => { if (!stopped) again(err?.message || 'This camera has no video stream'); });
+      const kind = order[step];
+      slow = setTimeout(() => { if (!playing) next("The camera's video didn't start"); }, kind === 'web_rtc' ? 12000 : 45000);
+      (kind === 'web_rtc' ? webrtc : hlsPlay)(id, el, (why) => { if (!stopped) next(why); }).then((fn) => { if (stopped) fn?.(); else stop = fn; });
     };
-    const ok = () => { tries = 0; vidErr = ''; };
-    const progress = () => (lastOk = Date.now());
+    // Only a picture counts: a WebRTC stream can "play" with no video in it.
+    const ok = () => { if (!el.videoWidth) return; tries = 0; vidErr = ''; playing = true; clearTimeout(slow); };
+    const progress = () => { if (el.videoWidth) lastOk = Date.now(); };
     el.addEventListener('timeupdate', progress);
     el.addEventListener('playing', ok);
+    el.addEventListener('resize', ok);
     start();
-    return () => { stopped = true; clearTimeout(slow); clearTimeout(retry); el.removeEventListener('playing', ok); el.removeEventListener('timeupdate', progress); hls?.destroy(); el.removeAttribute('src'); el.load?.(); };
+    return () => { stopped = true; clearTimeout(retry); el.removeEventListener('playing', ok); el.removeEventListener('resize', ok); el.removeEventListener('timeupdate', progress); end(); };
   });
+
+  // WebRTC, as Home Assistant's own dashboard plays cameras: offer, answer and
+  // ICE candidates over the websocket; the video comes straight from HA.
+  async function webrtc(id, el, fail) {
+    let pc, unsub, session = null, done = false;
+    const queued = [];
+    const close = () => { done = true; unsub?.(); pc?.close(); };
+    try {
+      const cfg = await send({ type: 'camera/webrtc/get_client_config', entity_id: id }).catch(() => ({}));
+      pc = new RTCPeerConnection(cfg?.configuration || {});
+      pc.addTransceiver('video', { direction: 'recvonly' });
+      pc.addTransceiver('audio', { direction: 'recvonly' });
+      if (cfg?.dataChannel) pc.createDataChannel(cfg.dataChannel);
+      const ms = new MediaStream();
+      pc.ontrack = (ev) => { ms.addTrack(ev.track); el.srcObject = ms; el.play?.().catch(() => {}); };
+      const sendCand = (c) => send({ type: 'camera/webrtc/candidate', entity_id: id, session_id: session, candidate: c }).catch(() => {});
+      pc.onicecandidate = (ev) => {
+        if (!ev.candidate) return;
+        const c = { candidate: ev.candidate.candidate, sdpMid: ev.candidate.sdpMid, sdpMLineIndex: ev.candidate.sdpMLineIndex };
+        session ? sendCand(c) : queued.push(c);
+      };
+      pc.onconnectionstatechange = () => { if (!done && pc.connectionState === 'failed') { close(); fail('WebRTC connection failed'); } };
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      unsub = subscribe({ type: 'camera/webrtc/offer', entity_id: id, offer: offer.sdp }, async (ev) => {
+        if (done) return;
+        if (ev.type === 'session') { session = ev.session_id; queued.splice(0).forEach(sendCand); }
+        else if (ev.type === 'answer') await pc.setRemoteDescription({ type: 'answer', sdp: ev.answer }).catch((e) => { close(); fail(e.message); });
+        else if (ev.type === 'candidate' && ev.candidate) await pc.addIceCandidate(ev.candidate).catch(() => {});
+        else if (ev.type === 'error') { close(); fail(ev.message || 'WebRTC refused'); }
+      });
+    } catch (e) {
+      close();
+      fail(e?.message || 'WebRTC not available');
+    }
+    return close;
+  }
+
+  // HLS: hls.js wherever it works; older iPhones / iPads only play it natively.
+  async function hlsPlay(id, el, fail) {
+    let hls, done = false;
+    try {
+      const r = await send({ type: 'camera/stream', entity_id: id });
+      const src = 'ha' + r.url;
+      const { default: Hls } = await import('hls.js');
+      if (!Hls.isSupported()) el.src = src;
+      else {
+        hls = new Hls({ liveSyncDurationCount: 2 });
+        hls.on(Hls.Events.ERROR, (_, d) => { if (d.fatal && !done) { done = true; hls.destroy(); fail('Video stream failed, retrying…'); } });
+        hls.loadSource(src);
+        hls.attachMedia(el);
+      }
+      el.play?.().catch(() => {});
+    } catch (e) {
+      fail(e?.message || 'This camera has no video stream');
+    }
+    return () => { done = true; hls?.destroy(); };
+  }
 </script>
 
 <div class="cam">
   {#if video}
-    <video bind:this={vid} muted autoplay playsinline style="object-fit:{fit}" onplaying={() => (playing = true)} onloadedmetadata={(ev) => (ratio = ev.currentTarget.videoWidth / ev.currentTarget.videoHeight || 0)}></video>
-    {#if vidErr}<div class="msg">{vidErr}</div>{:else if !playing}<div class="msg">Starting video…</div>{/if}
+    <video bind:this={vid} muted autoplay playsinline poster={camId ? `ha/api/camera_proxy/${camId}` : undefined} style="object-fit:{fit}" onloadedmetadata={(ev) => (ratio = ev.currentTarget.videoWidth / ev.currentTarget.videoHeight || 0)}></video>
+    {#if vidErr}<div class="msg">{vidErr}</div>{:else if !playing}<div class="msg starting">Starting video…</div>{/if}
   {:else if shown}<img src={shown} alt="" style="object-fit:{fit}" class:broken onerror={() => { broken = true; failed++; }} onload={(ev) => { broken = false; ratio = ev.currentTarget.naturalWidth / ev.currentTarget.naturalHeight || 0; }} />{/if}
   {#if !video && (broken || (!shown && failed >= 2))}<div class="msg">No picture from this camera</div>{/if}
   {#if props.show_name}<div class="lbl">{t(props.name) || name(e)}</div>{/if}
@@ -200,5 +265,6 @@
   img, video { width: 100%; height: 100%; display: block; }
   img.broken { visibility: hidden; }
   .msg { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: .85em; padding: 12px; text-align: center; }
+  .msg.starting { place-items: end center; padding-bottom: 2.4em; text-shadow: 0 1px 4px #000; }
   .lbl { position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 14px 10px; background: linear-gradient(transparent, rgba(0,0,0,.6)); font-weight: 600; font-size: .9em; }
 </style>

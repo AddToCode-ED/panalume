@@ -9,6 +9,7 @@
       { key: 'name', label: 'Name', type: 'text' },
       { key: 'forecast', label: 'Forecast', type: 'select', options: ['daily', 'hourly', 'none'] },
       { key: 'days', label: 'Forecast items', type: 'number' },
+      { key: 'hilo', label: "Show today's high and low", type: 'bool' },
     ],
   };
   export const WX = { 'clear-night': 'mdi:weather-night', cloudy: 'mdi:weather-cloudy', exceptional: 'mdi:alert-circle-outline', fog: 'mdi:weather-fog', hail: 'mdi:weather-hail', lightning: 'mdi:weather-lightning', 'lightning-rainy': 'mdi:weather-lightning-rainy', partlycloudy: 'mdi:weather-partly-cloudy', pouring: 'mdi:weather-pouring', rainy: 'mdi:weather-rainy', snowy: 'mdi:weather-snowy', 'snowy-rainy': 'mdi:weather-snowy-rainy', sunny: 'mdi:weather-sunny', windy: 'mdi:weather-windy', 'windy-variant': 'mdi:weather-windy-variant' };
@@ -29,6 +30,20 @@
     if (!id || type === 'none') return;
     return subscribe({ type: 'weather/subscribe_forecast', entity_id: id, forecast_type: type }, (ev) => (forecast = ev.forecast || []));
   });
+  // Today's high and low come from the daily forecast, whatever the card shows.
+  let daily = $state([]);
+  $effect(() => {
+    const id = e?.entity_id;
+    if (!id || !props.hilo || props.forecast === 'daily') return;
+    return subscribe({ type: 'weather/subscribe_forecast', entity_id: id, forecast_type: 'daily' }, (ev) => (daily = ev.forecast || []));
+  });
+  const today = $derived.by(() => {
+    if (!props.hilo) return null;
+    const list = props.forecast === 'daily' ? forecast : daily;
+    const d = new Date().toDateString();
+    return list.find((f) => new Date(f.datetime).toDateString() === d) || null;
+  });
+  const COND = { partlycloudy: 'Partly cloudy', 'clear-night': 'Clear', 'lightning-rainy': 'Thunderstorms', 'snowy-rainy': 'Sleet', 'windy-variant': 'Windy', exceptional: 'Severe weather' };
   const items = $derived(forecast.slice(0, Number(props.days) || 5));
   const label = (f) => props.forecast === 'hourly' ? new Date(f.datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date(f.datetime).toLocaleDateString([], { weekday: 'short' });
 </script>
@@ -38,7 +53,8 @@
     {#if show('icon')}<Icon icon={WX[e?.state] || 'mdi:weather-cloudy'} size="3.2em" />{/if}
     <div>
       {#if show('temp')}<div class="temp">{a.temperature != null ? Math.round(a.temperature) + '°' : '—'}</div>{/if}
-      {#if show('cond')}<div class="cond">{t(props.name) || (e?.state || '').replace(/-/g, ' ')}</div>{/if}
+      {#if today}<div class="hl"><span>↑ {Math.round(today.temperature)}°</span>{#if today.templow != null}<span class="lo">↓ {Math.round(today.templow)}°</span>{/if}</div>{/if}
+      {#if show('cond')}<div class="cond">{t(props.name) || COND[e?.state] || (e?.state || '').replace(/-/g, ' ')}</div>{/if}
     </div>
     <div class="extra">
       {#if a.humidity != null && show('humidity')}<span><Icon icon="mdi:water-percent" size="1em" /> {a.humidity}%</span>{/if}
@@ -63,6 +79,7 @@
   .wx { height: 100%; display: flex; flex-direction: column; justify-content: space-between; gap: 8px; }
   .now { display: flex; align-items: center; gap: 14px; }
   .temp { font-size: 2.2em; font-weight: 600; line-height: 1; }
+  .hl { display: flex; gap: 8px; font-size: .85em; font-weight: 600; margin-top: 2px; }
   .cond { color: var(--muted); text-transform: capitalize; font-size: .9em; }
   .extra { margin-left: auto; display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: .85em; text-align: right; }
   .extra span { display: flex; align-items: center; gap: 4px; justify-content: flex-end; }

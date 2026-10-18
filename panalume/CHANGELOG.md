@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.30.0
+
+- **Live cameras are real live video.** Live mode used to be a stream of still pictures, which some cameras (e.g. Generic Camera) only give out every few seconds. It now plays the camera's video the way Home Assistant's own dashboard does: WebRTC first (near-instant), then HLS, and only falls back to pictures for cameras that can't stream. Full screen uses it too, and the last picture shows while the video starts.
+- **Weather card: today's high and low.** Tick **Show today's high and low** to see them under the current temperature. Condition names read properly too ("Partly cloudy" rather than "Partlycloudy").
+
 ## 0.29.0
 
 - **Cameras come back after the screen's been off.** Tablets that turn their screen off (e.g. Fully Kiosk with the lights) could come back to "Video stream failed" or no picture. Cameras now start afresh when the screen comes back on (Fully Kiosk's screen-on too, with its JavaScript interface enabled), restart by themselves if nothing new has shown for 90 seconds, and a dropped video stream is retried instead of giving up.
