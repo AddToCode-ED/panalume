@@ -72,20 +72,26 @@ Built for the [Octopus Energy](https://github.com/BottlecapDave/HomeAssistant-Oc
 
 Detects Samsung SmartThings washers, Home Connect (Bosch / Neff / Siemens) dishwashers, hOn (Haier / Candy / Hoover) dryers and Gecko (in.touch2) hot tubs; any other appliance can be set up by picking its entities.
 
-**Air fryer**: works on any smart plug with a power sensor. It shows when the air fryer is cooking, paused or finished, and times the whole cook; taking the basket out to shake the food doesn't stop the clock (you choose how long a power cut may last, 3 minutes by default).
+<table><tr>
+<td width="55%"><img src="docs/screenshots/airfryer.webp" alt="Air fryer card"><br><sub><b>Air fryer</b>: works on any smart plug with a power sensor. Cooking, paused or finished, and a timer for the whole cook; taking the basket out to shake the food doesn't stop the clock (you choose how long a power cut may last, 3 minutes by default).</sub></td>
+<td width="45%"><img src="docs/screenshots/vacuum.webp" alt="Robot vacuum card"><br><sub><b>Robot vacuum</b>: status, battery, area and time cleaned, Start / Pause / Dock, Locate and suction power (Roborock, Ecovacs, Dreame, Valetudo and others detected automatically).</sub></td>
+</tr></table>
 
 <table><tr>
 <td width="62%"><img src="docs/screenshots/printer.webp" alt="3D printer card"><br><sub><b>3D printer</b>: progress ring around the model, time left and finish time, layers, nozzle / bed / chamber temperatures, filament colour, Pause / Resume / Stop, light and speed (Bambu Lab printers detected automatically; OctoPrint too).</sub></td>
 <td width="38%"><img src="docs/screenshots/lock.webp" alt="Door lock card"><br><sub><b>Door lock</b>: a padlock whose shackle lifts when unlocked; tap to lock, tap twice to unlock; door sensor, battery and Open door.</sub></td>
 </tr></table>
 
-<p align="center"><img src="docs/screenshots/climate-group.webp" alt="Climate group card" width="440"><br><sub><b>Climate group</b>: upstairs and downstairs AC (or any thermostats) from one card: one target, mode and fan speed for all of them, and a row per unit to switch it or adjust it on its own.</sub></p>
+<table><tr>
+<td width="50%"><img src="docs/screenshots/climate-group.webp" alt="Climate group card"><br><sub><b>Climate group</b>: upstairs and downstairs AC (or any thermostats) from one card: one target, mode and fan speed for all of them, and a row per unit to switch it or adjust it on its own.</sub></td>
+<td width="50%"><img src="docs/screenshots/calendar.webp" alt="Calendar card"><br><sub><b>Calendar</b>: today's and upcoming events from any of Home Assistant's calendars (Google, CalDAV, Local calendar, holidays…), each in its own colour, grouped by day; what's on now is highlighted, and tapping an event shows its details.</sub></td>
+</tr></table>
 
 ## Edit in the browser
 
 <p align="center"><img src="docs/screenshots/edit.webp" alt="Editing a card" width="900"></p>
 
-Press the faint pencil (or **E**) to edit. Add cards from the panel, drag and resize them on the canvas, and change content, style, actions and size on the right. Every card's settings form is generated from the card itself, so nothing needs YAML.
+Press the faint pencil (or **E**) to edit. Add cards from the panel, drag and resize them on the canvas, and change content, style, actions and size in the editor panel, which you can dock on the left, right or bottom. The editing toolbar (Done, undo, view, device and Saved) sits along the bottom edge, so it works on phones too. Every card's settings form is generated from the card itself, so nothing needs YAML.
 
 <table><tr>
 <td width="38%"><img src="docs/screenshots/phone.webp" alt="Automatic phone layout"></td>
