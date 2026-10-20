@@ -72,11 +72,13 @@
   {:else}
     <input id={f.key} type="text" value={obj[f.key] ?? ''} placeholder={f.placeholder || ''} oninput={(e) => set(e.currentTarget.value)} />
   {/if}
+  {#if f.hint}<div class="hint">{f.hint}</div>{/if}
 </div>
 
 <style>
   .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
   label { font-size: 12px; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+  .hint { font-size: 11px; color: var(--muted); opacity: .8; line-height: 1.35; }
   .eye { margin-left: auto; background: none; border: 0; color: var(--accent); padding: 0 2px; display: grid; }
   .eye.off { color: var(--muted); opacity: .6; }
   .field:has(.eye.off) :global(input) { opacity: .5; }

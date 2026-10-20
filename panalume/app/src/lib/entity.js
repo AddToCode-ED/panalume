@@ -42,6 +42,17 @@ export function formatNumber(v, digits) {
 
 const LABEL = { on: 'On', off: 'Off', unavailable: 'Unavailable', unknown: 'Unknown', home: 'Home', not_home: 'Away', open: 'Open', closed: 'Closed', playing: 'Playing', paused: 'Paused', idle: 'Idle', locked: 'Locked', unlocked: 'Unlocked', heat: 'Heat', cool: 'Cool', auto: 'Auto', heat_cool: 'Heat/Cool', dry: 'Dry', fan_only: 'Fan' };
 
+// Binary sensor states in Home Assistant's own words, by device class.
+const OPEN = ['Open', 'Closed'], DETECT = ['Detected', 'Clear'];
+const BINARY = {
+  door: OPEN, window: OPEN, opening: OPEN, garage_door: OPEN,
+  motion: DETECT, occupancy: DETECT, presence: ['Home', 'Away'], smoke: DETECT, gas: DETECT, carbon_monoxide: DETECT, sound: DETECT, vibration: DETECT, tamper: DETECT,
+  moisture: ['Wet', 'Dry'], lock: ['Unlocked', 'Locked'], plug: ['Plugged in', 'Unplugged'], connectivity: ['Connected', 'Disconnected'],
+  battery: ['Low', 'Normal'], battery_charging: ['Charging', 'Not charging'], problem: ['Problem', 'OK'], safety: ['Unsafe', 'Safe'],
+  cold: ['Cold', 'Normal'], heat: ['Hot', 'Normal'], light: ['Light', 'No light'], moving: ['Moving', 'Not moving'], power: ['Power', 'No power'],
+  running: ['Running', 'Not running'], update: ['Update available', 'Up to date'],
+};
+
 export function stateText(e, { digits, unit = true } = {}) {
   if (!e) return '—';
   const d = domain(e.entity_id);
@@ -52,6 +63,10 @@ export function stateText(e, { digits, unit = true } = {}) {
     return t != null ? `${formatNumber(t, 1)}°` : LABEL[e.state] || e.state;
   }
   if (e.attributes.device_class === 'timestamp' || d === 'input_datetime') return relTime(e.state);
+  if (d === 'binary_sensor' && (e.state === 'on' || e.state === 'off')) {
+    const w = BINARY[e.attributes.device_class];
+    if (w) return w[e.state === 'on' ? 0 : 1];
+  }
   const n = Number(e.state);
   if (e.state !== '' && !Number.isNaN(n)) {
     const u = e.attributes.unit_of_measurement;

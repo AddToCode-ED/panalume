@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.31.1
+
+- **Sensor card: hide parts, and values that fit.** New **Show** buttons hide the icon, name, value or unit. The value now shrinks to fit the card, so a long state like *Detected* is no longer cut off on a small card, and **Value size %** sets its size yourself without making everything else bigger. **Value** now says it can be your own text, no template needed.
+- **Binary sensors in Home Assistant's words.** Door, window, motion, moisture, plug and other binary sensors now show *Open* / *Closed*, *Detected* / *Clear*, *Wet* / *Dry*, *Plugged in* / *Unplugged* and so on, as Home Assistant does, instead of *On* / *Off*, on every card.
+- **Alarm panel scales with the card.** Making the card smaller or bigger now resizes the buttons and keypad too, instead of only the text.
+- **Clearer theme settings.** Colour and blur settings now say what they change: **Accent colour** (sliders, dials, graphs, links, selected buttons), the **"On" colour** (icons and toggles of things that are on; lights use their own colour), **Secondary text**, **Card content size %** and **Card glass blur** (0 is fastest on older tablets).
+
 ## 0.31.0
 
 - **Calendar card.** Today's and upcoming events from your Home Assistant calendars (Google, CalDAV, Local calendar, holidays…), grouped by day, each calendar in its own colour. Events on now are highlighted, finished ones drop off, and tapping an event shows its location and description. Choose how many days ahead and how many events; small cards show just the next few.
