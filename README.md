@@ -5,6 +5,8 @@
 <p align="center"><b>A glassy, fast, drag-and-drop dashboard for Home Assistant.</b><br>
 Put any card anywhere, make it any size, style it any way — and run it on a wall tablet, phone or desktop.</p>
 
+<p align="center">👋 <b>Welcome!</b> Panalume is a free, open-source dashboard for the Home Assistant community. <i>Driven by a human, helped by Claude Code</i>, it started as a dashboard for one home and is growing with help from people like you: some of its cards were built by the community. Whether it's an idea, a bug, a question or a new card, you're very welcome to <a href="https://github.com/leacho73/panalume/issues">open an issue</a> or send a pull request.</p>
+
 <p align="center"><img src="docs/screenshots/home.webp" alt="Panalume on a wall tablet" width="900"></p>
 
 <p align="center"><a href="https://youtu.be/hPoqwze7i7k"><img src="docs/screenshots/preview.webp" alt="Panalume in action" width="900"></a><br><sub>▶ <a href="https://youtu.be/hPoqwze7i7k">Watch the 1½-minute demo on YouTube</a>: the wall tablet, energy, solar, sun and moon, around the house, editing in the browser and the phone layout.</sub></p>
