@@ -8,6 +8,7 @@
     defaults: { device: 'zappi', boosts: '5,10,20', cap: false, cap_hours: 6, eddi_target: 'Heater 1', eddi_minutes: '30,60,120' },
     autofill: () => {
       const z = find(/^select\.myenergi_zappi_.+_charge_mode$/);
+      if (!z) return {}; // no Zappi here: leave the settings empty
       const p = z.replace(/^select\.(myenergi_zappi_\d+)_charge_mode$/, '$1');
       return { dispatching: find(/^binary_sensor\.octopus_energy_.+_intelligent_dispatching$/), mode: z, status: `sensor.${p}_status`, plug: `sensor.${p}_plug_status`, session: `sensor.${p}_charge_added_session`, power: myenergiPower(find(/^sensor\.myenergi_hub_.+_power_charging/), 'zappi', z) };
     },

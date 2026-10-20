@@ -1,5 +1,5 @@
 import { param } from './params.js';
-import { toast } from './ha.svelte.js';
+import { toast, validEntityId } from './ha.svelte.js';
 // Dashboard config: cards are defined once and placed on layouts. The main
 // (tablet) layout is shown everywhere by default: desktop scales it, phone gets
 // an automatic single-column reflow. Either can be switched to a custom layout.
@@ -287,7 +287,9 @@ function placeEverywhere(cardId, zone, size) {
 
 export function addCard(type, meta, zone = app.view) {
   const id = uid();
-  app.config.cards[id] = normalise({ id, type, props: { ...structuredClone(meta.defaults || {}), ...(meta.autofill?.({ cards: app.config.cards }) || {}) } });
+  // Auto-filled entity IDs that aren't valid (e.g. a device that isn't there) are left blank.
+  const auto = Object.fromEntries(Object.entries(meta.autofill?.({ cards: app.config.cards }) || {}).map(([k, v]) => [k, typeof v === 'string' && /^[a-z_]+\./.test(v) && !validEntityId(v) ? '' : v]));
+  app.config.cards[id] = normalise({ id, type, props: { ...structuredClone(meta.defaults || {}), ...auto } });
   placeEverywhere(id, zone, { w: meta.size?.w || 200, h: meta.size?.h || 120 });
   app.panel = 'card';
   changed();

@@ -45,7 +45,7 @@
   });
   const COND = { partlycloudy: 'Partly cloudy', 'clear-night': 'Clear', 'lightning-rainy': 'Thunderstorms', 'snowy-rainy': 'Sleet', 'windy-variant': 'Windy', exceptional: 'Severe weather' };
   const items = $derived(forecast.slice(0, Number(props.days) || 5));
-  const label = (f) => props.forecast === 'hourly' ? new Date(f.datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date(f.datetime).toLocaleDateString([], { weekday: 'short' });
+  const label = (f) => props.forecast === 'hourly' ? new Date(f.datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : new Date(f.datetime).toLocaleDateString([], { weekday: 'short' });
 </script>
 
 <div class="wx">

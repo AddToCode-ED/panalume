@@ -112,7 +112,7 @@
   const fmtP = (v) => (v == null ? '—' : v < 1 ? `${Math.round(v * 1000)}` : v.toFixed(v < 10 ? 2 : 1));
   const pUnit = (v) => (v != null && v < 1 ? 'W' : 'kW');
   const f1 = (v) => (v == null ? '—' : v.toFixed(1));
-  const tm = (x) => new Date(x).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const tm = (x) => new Date(x).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
 
   // How much room there is decides what to show.
   const strip = $derived(h < 130);

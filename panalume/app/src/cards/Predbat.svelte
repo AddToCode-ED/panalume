@@ -39,6 +39,7 @@
   // and quick manual overrides for the current half-hour.
   import Icon from '../components/Icon.svelte';
   import { t, ent } from '../lib/tpl.js';
+  import { fmtMoney, fmtRate } from '../lib/money.svelte.js';
   import { clock } from '../lib/clock.svelte.js';
   import { callService } from '../lib/ha.svelte.js';
   import { hm, day, until } from '../lib/octopus.js';
@@ -86,7 +87,8 @@
   const kind = $derived(cur?.kind || kindOf(st?.state));
   const K = $derived(KINDS[kind]);
   const socNow = $derived(raw?.soc_max ? Math.round((raw.soc / raw.soc_max) * 100) : cur?.soc);
-  const pounds = (p) => (p == null || !Number.isFinite(Number(p)) ? '—' : `£${(Number(p) / 100).toFixed(2)}`);
+  // Predbat works in the small unit (pence, cents…); money is shown in HA's currency.
+  const pounds = (p) => (p == null || !Number.isFinite(Number(p)) ? '—' : fmtMoney(Number(p) / 100));
   const cost = $derived(ent(props.cost_today)?.state);
   const saved = $derived(ent(props.savings)?.state);
   const summary = $derived.by(() => {
@@ -154,7 +156,7 @@
   {#if show('kpis')}
     <div class="kpis">
       {#if props.cost_today}<div><b>{pounds(cost)}</b><span>cost today</span></div>{/if}
-      {#if raw?.totals?.total_cost != null}<div><b>£{Number(raw.totals.total_cost).toFixed(2)}</b><span>rest of plan</span></div>{/if}
+      {#if raw?.totals?.total_cost != null}<div><b>{fmtMoney(raw.totals.total_cost)}</b><span>rest of plan</span></div>{/if}
       {#if props.savings}<div><b class:neg={Number(saved) < 0}>{pounds(saved)}</b><span>saved yesterday</span></div>{/if}
     </div>
   {/if}
@@ -186,7 +188,7 @@
           <Icon icon={k.icon} size="1.1em" />
           <span class="what">{k.label}</span>
           <span class="when">{day(w.start, now) === 'Today' ? '' : day(w.start, now) + ' '}{hm(w.start)}–{hm(w.end)}</span>
-          <span class="dim">{w.soc}→{w.soc2}%{' · '}{avg(w.rates).toFixed(1)}p{#if show('car') && w.car > 0.05}{' · '}<Icon icon="mdi:car-electric" size="1em" />{w.car.toFixed(1)}{/if}</span>
+          <span class="dim">{w.soc}→{w.soc2}%{' · '}{fmtRate(avg(w.rates) / 100)}{#if show('car') && w.car > 0.05}{' · '}<Icon icon="mdi:car-electric" size="1em" />{w.car.toFixed(1)}{/if}</span>
           {#if w.start > now}<span class="in">in {until(w.start, now)}</span>{/if}
         </div>
       {:else}

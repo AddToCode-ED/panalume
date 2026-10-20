@@ -5,6 +5,7 @@
   import Icon from './components/Icon.svelte';
   import { app, load, save, layout, setPanelSide, DEVICES, MODE_SHORT, detectDevice, setView, removeSelected, duplicateSelected, selectedPlacement, changed, undo, undoLast, selectionSet, ensureEditable, zoneList, groupSelected } from './lib/config.svelte.js';
   import { conn, toasts, watchEntities, states, subscribe } from './lib/ha.svelte.js';
+  import { loadMoney } from './lib/money.svelte.js';
   import { HUB_CHARGING, MYENERGI_OWN } from './lib/octopus.js';
   import { GRID } from './lib/config.svelte.js';
   import { setKiosk } from './lib/kiosk.js';
@@ -35,6 +36,7 @@
   let askedMyenergi = false;
   $effect(() => {
     if (!app.config || !conn.connected) return;
+    loadMoney();
     if (app.editing) return watchEntities(null);
     const ids = new Set();
     const walk = (v) => {

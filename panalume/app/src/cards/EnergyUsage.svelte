@@ -37,6 +37,7 @@
   // spare energy went (export, battery charging) below it. Uses HA's 5-minute
   // statistics, refreshed every minute, plus a live top-up from power sensors.
   import { t, ent } from '../lib/tpl.js';
+  import { fmtMoney, fmtRate, fmtNum } from '../lib/money.svelte.js';
   import { send, conn } from '../lib/ha.svelte.js';
   let { props, w: cw = 640, h: ch = 340 } = $props();
   const show = (k) => !props.hide?.[k];
@@ -88,12 +89,12 @@
     return () => { clearInterval(a); clearInterval(b); };
   });
 
-  // Live prices (GBP/kWh) from the price sensors in HA's Energy settings.
+  // Live prices (per kWh, in HA's currency) from the price sensors in HA's Energy settings.
   const gridSrc = $derived((prefs?.energy_sources || []).find((x) => x.type === 'grid'));
-  const price = (id, fixed) => { if (fixed != null) return Number(fixed); const e = ent(id); const v = Number(e?.state); if (!Number.isFinite(v)) return null; return /^(p|pence)\/kwh$/i.test(e.attributes.unit_of_measurement || '') ? v / 100 : v; };
+  const price = (id, fixed) => { if (fixed != null) return Number(fixed); const e = ent(id); const v = Number(e?.state); if (!Number.isFinite(v)) return null; return /^(p|pence|ct|cents?|¢|øre|öre|rp\.?)\/kwh$/i.test(e.attributes.unit_of_measurement || '') ? v / 100 : v; };
   const priceIn = $derived(props.import_price ? price(props.import_price) : price(gridSrc?.entity_energy_price, gridSrc?.number_energy_price));
   const priceOut = $derived(props.export_price ? price(props.export_price) : price(gridSrc?.entity_energy_price_export, gridSrc?.number_energy_price_export));
-  const pence = (v) => (v * 100).toFixed(1) + 'p';
+  const pence = (v) => fmtRate(v);
 
   // Live power in kW (sensors in W or kW).
   const kw = (id, inv) => { const e = ent(id); const v = Number(e?.state); if (!Number.isFinite(v)) return null; const k = /^kw$/i.test(e.attributes.unit_of_measurement || '') ? v : v / 1000; return inv ? -k : k; };
@@ -138,7 +139,7 @@
   const tot = $derived({ grid: sum('grid'), solar: sum('solar'), battery: sum('battery'), export: sum('export'), charge: sum('charge'), produced: hours.reduce((a, x) => a + x.raw.solar, 0), imported: hours.reduce((a, x) => a + x.raw.from, 0) });
   const money = $derived({ cost: hours.reduce((a, x) => a + x.cost, 0), comp: hours.reduce((a, x) => a + x.comp, 0) });
   const hasMoney = $derived(ids.cost.length > 0 || ids.comp.length > 0);
-  const gbp = (v) => (v < 0 ? '−' : '') + '£' + Math.abs(v).toFixed(2);
+  const gbp = (v) => fmtMoney(v);
   const used = $derived(tot.grid + tot.solar + tot.battery);
   const selfSuff = $derived(used > 0 ? Math.round((1 - tot.grid / used) * 100) : null);
 
@@ -161,7 +162,7 @@
   const ratePts = $derived(hours.map((x, i) => (x.rate == null ? null : [PADL + i * bw + bw / 2, RY(x.rate), x.rate, i])).filter(Boolean));
   // Only join neighbouring hours; a gap means nothing was bought from the grid.
   const ratePath = $derived(ratePts.map(([x, y, , i], k) => `${k && ratePts[k - 1][3] === i - 1 ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(''));
-  const f = (v) => (v >= 10 ? v.toFixed(0) : v.toFixed(1));
+  const f = (v) => fmtNum(v, v >= 10 ? 0 : 1);
 </script>
 
 <div class="eu">
@@ -169,10 +170,10 @@
     <div class="title">{t(props.title) || (props.day === 'yesterday' ? 'Energy usage yesterday' : 'Energy usage today')}</div>
     {#if show('live') && homeKw != null && props.day !== 'yesterday'}
       <div class="live">
-        <span class="dot"></span>Using <b>{homeKw.toFixed(1)} kW</b>
-        {#if solarKw > 0.05}<span style="color:{C.solar}">☀ {solarKw.toFixed(1)} kW</span>{/if}
-        {#if gridKw != null && Math.abs(gridKw) > 0.05}<span style="color:{gridKw > 0 ? C.grid : C.export}">{gridKw > 0 ? '↓ grid' : '↑ export'} {Math.abs(gridKw).toFixed(1)} kW</span>{/if}
-        {#if battKw != null && Math.abs(battKw) > 0.05}<span style="color:{battKw > 0 ? C.battery : C.charge}">{battKw > 0 ? 'battery' : 'charging'} {Math.abs(battKw).toFixed(1)} kW</span>{/if}
+        <span class="dot"></span>Using <b>{fmtNum(homeKw)} kW</b>
+        {#if solarKw > 0.05}<span style="color:{C.solar}">☀ {fmtNum(solarKw)} kW</span>{/if}
+        {#if gridKw != null && Math.abs(gridKw) > 0.05}<span style="color:{gridKw > 0 ? C.grid : C.export}">{gridKw > 0 ? '↓ grid' : '↑ export'} {fmtNum(Math.abs(gridKw))} kW</span>{/if}
+        {#if battKw != null && Math.abs(battKw) > 0.05}<span style="color:{battKw > 0 ? C.battery : C.charge}">{battKw > 0 ? 'battery' : 'charging'} {fmtNum(Math.abs(battKw))} kW</span>{/if}
         {#if show('prices') && priceIn != null}<span class="price">{pence(priceIn)}/kWh{#if priceOut != null}{' · export '}{pence(priceOut)}{/if}</span>{/if}
       </div>
     {/if}
@@ -226,11 +227,11 @@
       {@const x = hours[shown]}
       <div class="hr">
         <b>{String(shown).padStart(2, '0')}:00{shown === curHour ? ' (now)' : ''}</b>
-        <span><i style="background:{C.grid}"></i>grid {x.grid.toFixed(2)} kWh</span>
-        <span><i style="background:{C.solar}"></i>solar {x.solar.toFixed(2)} kWh</span>
-        {#if x.battery > 0.005}<span><i style="background:{C.battery}"></i>battery {x.battery.toFixed(2)} kWh</span>{/if}
-        {#if x.export > 0.005}<span><i style="background:{C.export}"></i>export {x.export.toFixed(2)} kWh</span>{/if}
-        {#if x.charge > 0.005}<span><i style="background:{C.charge}"></i>charging {x.charge.toFixed(2)} kWh</span>{/if}
+        <span><i style="background:{C.grid}"></i>grid {fmtNum(x.grid, 2)} kWh</span>
+        <span><i style="background:{C.solar}"></i>solar {fmtNum(x.solar, 2)} kWh</span>
+        {#if x.battery > 0.005}<span><i style="background:{C.battery}"></i>battery {fmtNum(x.battery, 2)} kWh</span>{/if}
+        {#if x.export > 0.005}<span><i style="background:{C.export}"></i>export {fmtNum(x.export, 2)} kWh</span>{/if}
+        {#if x.charge > 0.005}<span><i style="background:{C.charge}"></i>charging {fmtNum(x.charge, 2)} kWh</span>{/if}
         {#if show('prices') && hasMoney && (x.cost > 0.005 || x.comp > 0.005)}<span class="cost">{gbp(x.cost)}{#if x.rate != null}{' at '}{pence(x.rate)}{/if}{#if x.comp > 0.005}{' · earned '}{gbp(x.comp)}{/if}</span>{/if}
       </div>
     {/if}

@@ -1,9 +1,14 @@
 # Changelog
 
-## 0.30.2
+## 0.31.0
 
-- **Air fryer card.** Pick a smart plug's power sensor and the card shows when the air fryer is cooking, paused or finished, a cook timer, when it started and finished, and the power it's drawing; no air-fryer integration needed. Taking the basket out to shake the food doesn't stop the clock: a power cut of up to 3 minutes (*Keep timing through no power for up to*) counts as part of the same cook, shown as *Paused*, and the finished time is the whole cook with the paused time noted. Dips under 30 seconds (the thermostat) are ignored. The cook is worked out from Home Assistant's history, so it survives a reload and every screen shows the same time. **Cooking above (W)** (50 by default) sets the power that counts as cooking.
-- **Robot vacuum card.** A round button (with a battery ring, when the vacuum reports one) starts, pauses or resumes cleaning, with the status under it, a **Dock** button, a **Locate** (beep) button and a suction-power picker. It only shows what the vacuum says it supports, and picks up battery, area-cleaned, time and error sensors automatically when the integration has them (Roborock, Ecovacs, Dreame, Valetudo, SwitchBot…). Small cards become a single row.
+- **Calendar card.** Today's and upcoming events from your Home Assistant calendars (Google, CalDAV, Local calendar, holidays…), grouped by day, each calendar in its own colour. Events on now are highlighted, finished ones drop off, and tapping an event shows its location and description. Choose how many days ahead and how many events; small cards show just the next few.
+- **Energy cards in your own currency.** The Energy usage and Predbat cards now use the currency set in Home Assistant (Settings → System → General) instead of always £ and p — e.g. 1,48 € and 24,5 ct/kWh in Germany, 1,48 kr. and 24,5 øre/kWh in Denmark — with numbers written the local way (2,4 kW). Price sensors in ct/kWh, øre/kWh or ¢/kWh are understood too. The Octopus cards stay in pounds and pence.
+- **Robot vacuum card** (contributed by Asben91). A round button (with a battery ring, when the vacuum reports one) starts, pauses or resumes cleaning, with the status under it, a **Dock** button, a **Locate** (beep) button and a suction-power picker. It only shows what the vacuum says it supports, and picks up battery, area-cleaned, time and error sensors automatically when the integration has them (Roborock, Ecovacs, Dreame, Valetudo, SwitchBot…). Small cards become a single row.
+- **Air fryer card** (contributed by FORCEGC). Pick a smart plug's power sensor and the card shows when the air fryer is cooking, paused or finished, a cook timer, when it started and finished, and the power it's drawing; no air-fryer integration needed. Taking the basket out to shake the food doesn't stop the clock: a power cut of up to 3 minutes (*Keep timing through no power for up to*) counts as part of the same cook, shown as *Paused*, and the finished time is the whole cook with the paused time noted. Dips under 30 seconds (the thermostat) are ignored. The cook is worked out from Home Assistant's history, so it survives a reload and every screen shows the same time. **Cooking above (W)** (50 by default) sets the power that counts as cooking.
+- **Editing toolbar on the bottom edge, and a dockable editor panel** (contributed by FORCEGC). On phones the Done / undo / view / device toolbar used to sit halfway up the screen over your cards; it's now a strip along the bottom edge on every screen, with the editor as a proper bottom sheet above it. Three new toolbar buttons put the editor panel on the left, right or along the bottom (tap the highlighted one to hide it), remembered on each device.
+- Fixed: one card with an invalid entity ID (e.g. a Zappi card added where there's no Zappi, which filled in `sensor._status`) stopped live updates on the whole dashboard. Invalid IDs are now left out, so the other cards keep updating, and new cards no longer fill in IDs for devices that aren't there.
+- Fixed: the weather card's hourly forecast and the solar card showed AM / PM on some Android tablets. They now use 24-hour time like the rest of Panalume.
 
 ## 0.30.1
 
@@ -127,12 +132,7 @@
 
 ## 0.24.0
 
-- **Glasshouse is now Panalume.** Same dashboard, new name: another Home Assistant dashboard, GlassHome, has a very similar one. To move across:
-  1. In **Settings → Apps → App Store**, install **Panalume** (same repository; it appears next to Glasshouse).
-  2. Start it, turn on **Show in sidebar** and open it. If Glasshouse is still running, Panalume copies your whole dashboard from it within a few seconds; nothing to export or import.
-  3. Check it's all there, point wall tablets at Panalume (any `?view=…` / `&kiosk` options carry over), then uninstall Glasshouse.
-
-  If Glasshouse isn't running any more, export from it (Layout → Backup) before uninstalling and import into Panalume.
+- **New name: Panalume.** Same dashboard, new name (another Home Assistant dashboard had a very similar one). It installs as a new app from the same repository and copies your dashboard across from the old one automatically.
 - The GitHub repository is now **leacho73/panalume**. The old address redirects, so Home Assistant keeps finding updates.
 
 ## 0.23.2
@@ -252,7 +252,7 @@ New address options for wall tablets:
 - `?return=5` goes back to that view (and closes any pop-up) after 5 minutes without a touch.
 - `?noedit` hides the edit pencil and turns off the E shortcut.
 
-Fixed: address options added to Home Assistant's address bar (e.g. in Fully Kiosk) were ignored, because Glasshouse runs inside a frame of HA's page. All options (`?device`, `?fit`, `?kiosk`, `?view`, `?return`, `?noedit`) are now read from HA's address as well.
+Fixed: address options added to Home Assistant's address bar (e.g. in Fully Kiosk) were ignored, because Panalume runs inside a frame of HA's page. All options (`?device`, `?fit`, `?kiosk`, `?view`, `?return`, `?noedit`) are now read from HA's address as well.
 
 ## 0.14.0
 
@@ -331,11 +331,11 @@ Fixed: address options added to Home Assistant's address bar (e.g. in Fully Kios
 
 ## 0.6.0
 
-- New add-on ID (`glasshouse`) and repository address: `https://github.com/leacho73/glasshouse`.
+- New add-on ID and repository address.
 
 ## 0.5.0
 
-- Renamed to **Glasshouse**, with a new icon and logo.
+- New name, icon and logo.
 - Show / hide sections on the Weather card (icon, temperature, condition, humidity, wind, forecast, lows) and the Power flow card (solar, grid, battery, EV, home, flow lines).
 
 ## 0.4.0

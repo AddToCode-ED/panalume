@@ -105,10 +105,16 @@ function apply(ev) {
   if (ev.r) for (const id of ev.r) states.delete(id);
 }
 
+/** Home Assistant's own rule for a valid entity ID (e.g. `sensor._status` isn't one). */
+export const validEntityId = (id) => /^(?!.+__)(?!_)[\da-z_]+(?<!_)\.(?!_)[\da-z_]+(?<!_)$/.test(id);
+
 let entitySub = null;
 let watchedKey = '';
 /** Subscribe to exactly these entities (null = all). */
 export function watchEntities(ids) {
+  // HA rejects the whole subscription if any ID is invalid, which would leave
+  // every card without live updates, so leave bad ones out.
+  if (ids) ids = [...ids].filter(validEntityId);
   const key = ids ? [...ids].sort().join(',') : '*';
   if (key === watchedKey) return;
   watchedKey = key;
