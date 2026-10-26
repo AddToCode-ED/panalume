@@ -69,10 +69,55 @@ async function isAdmin(req) {
   try { return (await haUsers()).has(id); } catch (e) { console.error('user check:', e.message); return true; }
 }
 
+// go2rtc (the video server inside Wyze Bridge, Frigate, Home Assistant's own
+// go2rtc and others): lets the camera card play its WebRTC video even when the
+// browser can't call it directly (an https page can't call http:// addresses).
+// Its address comes from the app's options, which only admins can change, never
+// from the browser. Default: port 1984 on the Home Assistant machine itself,
+// where the Wyze Bridge app's host networking publishes it.
+function go2rtcTarget() {
+  let o = {};
+  try { o = JSON.parse(fs.readFileSync(path.join(DATA, 'options.json'), 'utf8')); } catch {}
+  const base = String(process.env.GO2RTC_URL || o.go2rtc_url || 'http://172.30.32.1:1984').trim().replace(/\/+$/, '');
+  const user = process.env.GO2RTC_USER || o.go2rtc_username || '';
+  const pass = process.env.GO2RTC_PASS || o.go2rtc_password || '';
+  const headers = user ? { Authorization: 'Basic ' + Buffer.from(`${user}:${pass}`).toString('base64') } : {};
+  return { base, headers };
+}
+
+async function go2rtc(req, res, p, url) {
+  const { base, headers } = go2rtcTarget();
+  if (!/^https?:\/\//i.test(base)) return send(res, 500, JSON.stringify({ error: 'The go2rtc address must start with http:// or https://' }));
+  const unreachable = (e) => send(res, 502, JSON.stringify({ error: `Can't reach go2rtc at ${base} (${e.cause?.code || e.cause?.errors?.[0]?.code || e.message})` }));
+  if (p.endsWith('/streams')) {
+    try {
+      const r = await fetch(base + '/api/streams', { headers, signal: AbortSignal.timeout(8000) });
+      if (!r.ok) return send(res, 502, JSON.stringify({ error: `go2rtc at ${base} answered ${r.status}` }));
+      return send(res, 200, JSON.stringify({ names: Object.keys(await r.json()) }));
+    } catch (e) { return unreachable(e); }
+  }
+  if (req.method !== 'POST') return send(res, 405, '{"error":"POST only"}');
+  const src = url.searchParams.get('src') || '';
+  if (!src || src.length > 100) return send(res, 400, '{"error":"Missing stream name"}');
+  let offer = '';
+  for await (const c of req) {
+    offer += c;
+    if (offer.length > 65536) return send(res, 413, '{"error":"Offer too large"}');
+  }
+  try {
+    // WHEP style: the browser's SDP offer in, go2rtc's SDP answer back.
+    const r = await fetch(`${base}/api/webrtc?src=${encodeURIComponent(src)}`, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/sdp' }, body: offer, signal: AbortSignal.timeout(10000) });
+    const text = await r.text();
+    if (r.ok) return send(res, 200, text, 'application/sdp');
+    return send(res, r.status, JSON.stringify({ error: text.trim().slice(0, 200) || `go2rtc answered ${r.status}` }));
+  } catch (e) { return unreachable(e); }
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   const p = url.pathname;
   try {
+    if (p === '/api/go2rtc/webrtc' || p === '/api/go2rtc/streams') return await go2rtc(req, res, p, url);
     if (p === '/api/config') {
       if (req.method === 'GET') return send(res, 200, fs.existsSync(CONFIG) ? fs.readFileSync(CONFIG) : 'null');
       if (req.method === 'PUT') {
