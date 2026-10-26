@@ -59,6 +59,7 @@
       if (e && (canToggle(entity) || ['scene', 'script', 'button', 'input_button'].includes(domain(entity)))) toggle(e);
       else if (entity) app.popup = { entity };
     } else if (kind === 'more-info' && entity) app.popup = { entity };
+    else if (kind === 'fullscreen' && card.type === 'camera' && card.props?.mode === 'go2rtc') app.popup = { camera: entity?.startsWith('camera.') ? entity : '', go2rtc: t(card.props?.stream) || '', name: t(card.props?.name) };
     else if (kind === 'fullscreen' && entity?.startsWith('camera.')) app.popup = { camera: entity, name: t(card.props?.name) };
     else if (kind === 'fullscreen' && entity) app.popup = { entity };
     else if (kind === 'popup') app.popup = { cards: act.cards || [], title: act.title };
