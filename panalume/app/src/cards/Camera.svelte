@@ -2,12 +2,13 @@
   export const meta = {
     type: 'camera', name: 'Camera', icon: 'mdi:cctv', category: 'Media',
     size: { w: 400, h: 240 }, tap: 'fullscreen',
-    defaults: { entity: '', mode: 'snapshot', refresh: 5, fit: 'auto', show_name: true },
+    defaults: { entity: '', mode: 'snapshot', refresh: 5, fit: 'auto', show_name: true, stream: '' },
     fields: [
-      { key: 'entity', label: 'Camera', type: 'entity', domain: ['camera', 'image'] },
+      { key: 'entity', label: 'Camera (optional with go2rtc: shows its picture while the video starts)', type: 'entity', domain: ['camera', 'image'] },
       { key: 'name', label: 'Name', type: 'text' },
       { key: 'show_name', label: 'Show name', type: 'bool' },
-      { key: 'mode', label: 'Mode', type: 'select', options: [{ value: 'snapshot', label: 'Snapshot' }, { value: 'live', label: 'Live' }, { value: 'video', label: 'Video stream (for cameras whose pictures fail)' }] },
+      { key: 'mode', label: 'Mode', type: 'select', options: [{ value: 'snapshot', label: 'Snapshot' }, { value: 'live', label: 'Live' }, { value: 'video', label: 'Video stream (for cameras whose pictures fail)' }, { value: 'go2rtc', label: 'WebRTC from go2rtc / Wyze Bridge (for cameras Home Assistant can\u2019t stream)' }] },
+      { key: 'stream', label: 'go2rtc stream name (go2rtc mode)', type: 'text', placeholder: 'wyze_bulb_cam', hint: 'The camera\u2019s name in go2rtc / Wyze Bridge: lowercase, spaces as underscores. Leave blank to match it from the camera above. The go2rtc address is set in the app\u2019s Configuration tab.' },
       { key: 'refresh', label: 'Snapshot refresh (s)', type: 'number' },
       { key: 'trigger', label: 'Take a new picture each refresh (Blink: on unless unticked; uses the camera battery)', type: 'bool' },
       { key: 'sound', label: 'Speaker button (live video from cameras with sound; full screen always has it)', type: 'bool' },
@@ -43,7 +44,10 @@
   });
   // Live uses the camera's real video stream when it has one; otherwise (or if
   // that fails) a stream of pictures. Video mode always uses the stream.
-  const video = $derived(!!camId && (props.mode === 'video' || (canStream && failed >= 2) || (props.mode === 'live' && !!caps?.length && !noStream)));
+  // go2rtc mode plays WebRTC straight from go2rtc (e.g. Wyze Bridge), for cameras
+  // Home Assistant has no video stream for (such as MQTT cameras).
+  const g2 = $derived(props.mode === 'go2rtc');
+  const video = $derived(g2 || (!!camId && (props.mode === 'video' || (canStream && failed >= 2) || (props.mode === 'live' && !!caps?.length && !noStream))));
   const live = $derived(props.mode === 'live' && !!camId && !video && caps != null);
   let broken = $state(false);
   let vid = $state();
@@ -166,8 +170,8 @@
   $effect(() => {
     if (!video || !vid) return;
     wake;
-    const id = camId, el = vid, kinds = caps;
-    const order = kinds?.length ? ['web_rtc', 'hls'].filter((k) => kinds.includes(k)) : ['hls'];
+    const id = camId, el = vid, kinds = caps, stream = t(props.stream) || '';
+    const order = g2 ? ['go2rtc'] : kinds?.length ? ['web_rtc', 'hls'].filter((k) => kinds.includes(k)) : ['hls'];
     let stop = null, stopped = false, retry, tries = 0, slow, step = 0;
     vidErr = '';
     playing = false;
@@ -186,8 +190,9 @@
     const start = () => {
       if (stopped || document.visibilityState === 'hidden') return;
       const kind = order[step];
-      slow = setTimeout(() => { if (!playing) next("The camera's video didn't start"); }, kind === 'web_rtc' ? 12000 : 45000);
-      (kind === 'web_rtc' ? webrtc : hlsPlay)(id, el, (why) => { if (!stopped) next(why); }).then((fn) => { if (stopped) fn?.(); else stop = fn; });
+      slow = setTimeout(() => { if (!playing) next("The camera's video didn't start"); }, kind === 'hls' ? 45000 : 12000);
+      const run = kind === 'go2rtc' ? () => go2rtcPlay(stream, id, el, (why) => { if (!stopped) next(why); }) : () => (kind === 'web_rtc' ? webrtc : hlsPlay)(id, el, (why) => { if (!stopped) next(why); });
+      run().then((fn) => { if (stopped) fn?.(); else stop = fn; });
     };
     // Only a picture counts: a WebRTC stream can "play" with no video in it.
     const ok = () => { if (!el.videoWidth) return; tries = 0; vidErr = ''; playing = true; clearTimeout(slow); if (el.srcObject) hasAudio = el.srcObject.getAudioTracks().length > 0; };
@@ -232,6 +237,64 @@
     } catch (e) {
       close();
       fail(e?.message || 'WebRTC not available');
+    }
+    return close;
+  }
+
+  // go2rtc (Wyze Bridge and others): WebRTC offered to go2rtc through Panalume's
+  // own server (it knows go2rtc's address and works from https pages too);
+  // the video then flows straight from go2rtc to this screen.
+  const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  // With no stream name set, match one of go2rtc's streams to the camera's name,
+  // e.g. wyze_bulb_cam for camera.wyze_bulb_cam_wyze_bulb_cam.
+  function matchStream(names, id) {
+    const keys = [norm(id?.replace(/^camera\./, '')), norm(e?.attributes.friendly_name)].filter(Boolean);
+    const hit = names.filter((n) => keys.some((k) => k === norm(n) || k.startsWith(norm(n) + '_') || k.endsWith('_' + norm(n))));
+    return hit.length === 1 ? hit[0] : hit.sort((a, b) => b.length - a.length)[0] || '';
+  }
+  async function streamNames() {
+    const r = await fetch('api/go2rtc/streams', { cache: 'no-store' });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || `go2rtc answered ${r.status}`);
+    return j.names || [];
+  }
+  async function go2rtcPlay(stream, id, el, fail) {
+    let pc, done = false;
+    const close = () => { done = true; pc?.close(); };
+    try {
+      let src = stream.trim();
+      if (!src) {
+        const names = await streamNames();
+        src = matchStream(names, id);
+        if (!src) throw new Error(names.length ? `Set the go2rtc stream name. go2rtc has: ${names.join(', ')}` : 'go2rtc has no streams yet');
+      }
+      // No STUN servers: this is for cameras on your own network, and Panalume makes no outside requests.
+      pc = new RTCPeerConnection({ iceServers: [] });
+      pc.addTransceiver('video', { direction: 'recvonly' });
+      pc.addTransceiver('audio', { direction: 'recvonly' });
+      const ms = new MediaStream();
+      pc.ontrack = (ev) => { ms.addTrack(ev.track); if (ev.track.kind === 'audio') hasAudio = true; el.srcObject = ms; el.play?.().catch(() => {}); };
+      pc.onconnectionstatechange = () => { if (!done && pc.connectionState === 'failed') { close(); fail('WebRTC connection failed. The video port (8889 on Wyze Bridge) must be reachable from this screen'); } };
+      await pc.setLocalDescription(await pc.createOffer());
+      // go2rtc wants the whole offer at once, so wait (briefly) for this screen's addresses.
+      await new Promise((ok) => {
+        if (pc.iceGatheringState === 'complete') return ok();
+        const t0 = setTimeout(ok, 2000);
+        pc.onicegatheringstatechange = () => { if (pc.iceGatheringState === 'complete') { clearTimeout(t0); ok(); } };
+      });
+      if (done) return close;
+      const r = await fetch('api/go2rtc/webrtc?src=' + encodeURIComponent(src), { method: 'POST', headers: { 'Content-Type': 'application/sdp' }, body: pc.localDescription.sdp });
+      if (!r.ok) {
+        const msg = (await r.json().catch(() => ({}))).error || `go2rtc answered ${r.status}`;
+        // Unknown stream: say which ones exist.
+        const names = await streamNames().catch(() => null);
+        throw new Error(names && !names.includes(src) ? `go2rtc has no stream "${src}". It has: ${names.join(', ') || 'none yet'}` : msg);
+      }
+      if (done) return close;
+      await pc.setRemoteDescription({ type: 'answer', sdp: await r.text() });
+    } catch (err) {
+      close();
+      fail(err?.message || 'go2rtc is not available');
     }
     return close;
   }
