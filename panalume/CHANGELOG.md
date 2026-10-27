@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.37.1
+
+- **Team tracker: no game / bye week.** These now show the league's logo (the sensor has no team logo then) with the league name, and "No upcoming games through <date>" instead of the raw message from the service.
+
 ## 0.37.0
 
 - **Team tracker card.** A scoreboard for the [Team Tracker](https://github.com/vasqued2/ha-teamtracker) integration (one sensor per team). Before the game it shows the date, time, venue, TV channel and odds; during it the score, period and clock, plus per sport who has the ball, the down and distance, the runners on base and the count, the last play and a live win-probability bar; afterwards the final score with the winner highlighted. Bye weeks and "no game found" are shown too. Away team on the left, home team on the right, in the team colours, with records and rankings. Short cards become a single row. Show or hide the league, records, live details, win probability and venue / TV / odds. Team logos load from the sports service's website (ESPN), so they can be switched off with **Team logos**. The sensor is picked automatically when you add the card.
