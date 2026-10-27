@@ -128,6 +128,17 @@
 
   const statusText = $derived(st === 'IN' ? 'LIVE' : st === 'POST' ? 'Final' : st === 'PRE' ? (A.kickoff_in ? String(A.kickoff_in) : 'Upcoming') : st === 'BYE' ? 'Bye week' : 'No game');
   const title = $derived(t(props.name) || A.league_name || A.league || '');
+
+  // Bye week / no game: the sensor has no team logo then, only the league's.
+  const idleLogo = $derived([me.logo, A.league_logo].find((u) => u && !bad[u]) || '');
+  const idleSize = $derived(Math.max(36, Math.min(84, h - 90)));
+  const idleText = $derived.by(() => {
+    if (st === 'BYE') return 'Bye week';
+    // "No competition scheduled for 'LAD' between <start> and <end>": say how far it looked.
+    const end = /between\s+\S+\s+and\s+(\S+)/i.exec(String(A.api_message || ''))?.[1];
+    const d = end ? new Date(end) : null;
+    return d && !isNaN(d) ? `No upcoming games through ${d.toLocaleDateString()}` : 'No game found';
+  });
 </script>
 
 <div class="tt" class:compact style="--c:{accent}">
@@ -136,9 +147,10 @@
     <div class="empty"><Icon icon="mdi:scoreboard-outline" size="1.8em" /><span>{e ? 'Team Tracker sensor unavailable' : 'Pick a Team Tracker sensor'}</span></div>
   {:else if st === 'BYE' || st === 'NOT_FOUND'}
     <div class="empty">
-      {#if logos && me.logo && !bad[me.logo]}<img class="solo" src={me.logo} alt="" onerror={() => (bad[me.logo] = true)} />{:else}<Icon icon={sportIcon} size="2em" />{/if}
+      {#if logos && idleLogo}<img class="solo" style="width:{idleSize}px;height:{idleSize}px" src={idleLogo} alt="" onerror={() => (bad[idleLogo] = true)} />{:else}<Icon icon={sportIcon} size="{idleSize * 0.7}px" />{/if}
       <b>{me.name || me.abbr}</b>
-      <span>{st === 'BYE' ? 'Bye week' : 'No game found'}{#if st === 'NOT_FOUND' && A.api_message && !compact} · {A.api_message}{/if}</span>
+      {#if !compact && show('league') && (A.league || A.league_name)}<small>{A.league || A.league_name}</small>{/if}
+      <span>{idleText}</span>
     </div>
   {:else}
     {#if !compact}
@@ -218,7 +230,8 @@
   .team.lose { opacity: .55; }
   .logo { position: relative; flex: none; display: grid; place-items: center; color: var(--tc); }
   .logo img, .solo { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 2px 6px rgba(0,0,0,.35)); }
-  .solo { width: 3.2em; height: 3.2em; }
+  .solo { object-fit: contain; }
+  .empty small { font-size: .75em; opacity: .8; }
   .ball { position: absolute; right: -4px; bottom: -3px; display: grid; place-items: center; width: 1.5em; height: 1.5em; border-radius: 50%; background: rgba(0,0,0,.6); color: #ffb547; }
   .tn { font-weight: 700; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .team.win .tn { color: var(--tc); }
