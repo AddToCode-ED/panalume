@@ -25,6 +25,24 @@ Added from **Add → Energy**; entities are auto-detected for the Octopus Energy
 - **Electric vehicle** — battery ring vs target, range, charging, plug/lock, climate.
 - **Power flow** — solar / grid / battery / home / EV.
 
+## Team tracker (sports scores)
+
+Needs the [Team Tracker](https://github.com/vasqued2/ha-teamtracker) integration (HACS), which creates one sensor per team you follow. Add the **Team tracker** card (Info) and pick that sensor; it's chosen for you if you have one.
+
+- Before the game: date and time, venue, TV channel and odds. During it: score, period and clock, and per sport the ball, down and distance, baseball runners and count, last play and win probability. After it: the final score.
+- Use the eye chips in the card's settings to hide the league, records, live details, win probability or venue / TV / odds.
+- **Team logos** are loaded from the sports service's website (ESPN), which is the one place this card goes outside your home network. Untick it to avoid that; the sport's icon is shown instead.
+
+## Wyze cameras (and other go2rtc cameras)
+
+Cameras that Home Assistant can't stream (e.g. Wyze Bridge's MQTT cameras show *"does not support play stream service"*) play over WebRTC straight from **go2rtc**, the video server inside Wyze Bridge.
+
+1. In the Camera card set **Mode → WebRTC from go2rtc / Wyze Bridge** and type the **go2rtc stream name** (the camera's Wyze Bridge name, lowercase with underscores, e.g. `wyze_bulb_cam`). Leave it blank to match it from the picked camera, or to see the available names in an error message.
+2. Panalume reaches go2rtc at `http://172.30.32.1:1984` (the Home Assistant machine, where the Wyze Bridge app publishes port 1984). If yours is elsewhere, set **go2rtc_url** in the app's **Configuration** tab (e.g. `http://192.168.1.50:1984`). Fill in **go2rtc_username** / **go2rtc_password** only if you turned on go2rtc's API login.
+3. The video itself goes straight from the bridge to your screen, so the bridge's WebRTC port (8889, plus UDP 8189) must be reachable from it, and the bridge's **IP** setting should be the Home Assistant machine's address on your network.
+
+Tap opens it full screen, like any camera.
+
 ## Import from ha-fusion
 
 Edit → **Layout → Import from ha-fusion** rebuilds the dashboard from your ha-fusion app: views, rooms, buttons (their state / name / icon / colour / service templates keep working, including `entity_id`), cameras and sidebar items, with tablet, phone and desktop layouts. An **Energy** view is added from auto-detected Octopus / myenergi / solar / EV entities. Icons from other sets (`tabler:`, `mingcute:`, `solar:` …) load from Iconify.

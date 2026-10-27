@@ -1,8 +1,8 @@
-name: Panalume
-version: "0.35.0"
+name: Panalume WebRTC
+version: "0.37.0"
 slug: panalume
 description: Glassy, fast, drag-and-drop Home Assistant dashboard — free layout, templated cards, Octopus energy cards
-url: https://github.com/leacho73/panalume
+url: https://github.com/AddToCode-ED/panalume
 arch:
   - aarch64
   - amd64
@@ -10,7 +10,7 @@ init: false
 ingress: true
 ingress_port: 8099
 panel_icon: mdi:greenhouse
-panel_title: Panalume
+panel_title: Panalume WebRTC
 panel_admin: false
 homeassistant_api: true
 hassio_api: true
@@ -18,3 +18,11 @@ ports:
   8099/tcp: null
 ports_description:
   8099/tcp: Direct access (optional, e.g. for a wall tablet; no HA login — leave unset unless your network is trusted)
+options:
+  go2rtc_url: ""
+  go2rtc_username: ""
+  go2rtc_password: ""
+schema:
+  go2rtc_url: str?
+  go2rtc_username: str?
+  go2rtc_password: password?

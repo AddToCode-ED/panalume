@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.37.0
+
+- **Team tracker card.** A scoreboard for the [Team Tracker](https://github.com/vasqued2/ha-teamtracker) integration (one sensor per team). Before the game it shows the date, time, venue, TV channel and odds; during it the score, period and clock, plus per sport who has the ball, the down and distance, the runners on base and the count, the last play and a live win-probability bar; afterwards the final score with the winner highlighted. Bye weeks and "no game found" are shown too. Away team on the left, home team on the right, in the team colours, with records and rankings. Short cards become a single row. Show or hide the league, records, live details, win probability and venue / TV / odds. Team logos load from the sports service's website (ESPN), so they can be switched off with **Team logos**. The sensor is picked automatically when you add the card.
+
+## 0.36.0
+
+- **Camera: WebRTC from go2rtc / Wyze Bridge.** A new **Mode → WebRTC from go2rtc / Wyze Bridge** for cameras Home Assistant can't stream (such as Wyze Bridge's MQTT cameras, which showed *"does not support play stream service"*). The card plays the camera's WebRTC video directly from go2rtc, with sound if the camera has it, and tapping it opens it full screen. Enter the camera's **go2rtc stream name**, or leave it blank and Panalume matches it to the camera you picked. If the name is wrong, the card lists the names go2rtc has.
+- **go2rtc address.** New **go2rtc_url**, **go2rtc_username** and **go2rtc_password** options in the app's Configuration tab. Panalume's own server talks to go2rtc, so it also works from https pages. It defaults to port 1984 on the Home Assistant machine.
+
 ## 0.35.0
 
 - **Calendar: week and month views.** Choose **View → Week** or **Month** in the calendar card's settings. Arrows move through the weeks or months and **Today** jumps back; tap a day to see its events in full. The week starts on the right day for your language, or pick it yourself. There's also a **12-hour times** option.
