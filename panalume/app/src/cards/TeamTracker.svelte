@@ -9,7 +9,7 @@
   export const meta = {
     type: 'team-tracker', name: 'Team tracker', icon: 'mdi:scoreboard', category: 'Info',
     size: { w: 380, h: 230 }, tap: 'more-info', hold: 'more-info',
-    defaults: { entity: '', logos: true },
+    defaults: { entity: '', logos: true, bglogos: true },
     autofill,
     sections: [
       { key: 'league', label: 'League' }, { key: 'records', label: 'Records and rankings' },
@@ -20,6 +20,7 @@
       { key: 'entity', label: 'Team Tracker sensor', type: 'entity', domain: 'sensor' },
       { key: 'name', label: 'Title (blank: the league)', type: 'text' },
       { key: 'logos', label: 'Team logos (loaded from the sports service’s website, e.g. ESPN)', type: 'bool' },
+      { key: 'bglogos', label: 'Large faded logos and team colours in the background', type: 'bool' },
     ],
   };
 </script>
@@ -124,7 +125,10 @@
   const tall = $derived(h >= 215);
   const logo = $derived(compact ? Math.max(28, Math.min(44, h - 36)) : Math.max(36, Math.min(76, h * 0.27, w * 0.17)));
   const logos = $derived(props.logos !== false);
+  const bglogos = $derived(logos && props.bglogos !== false);
   let bad = $state({});
+  // Each team's logo, huge and faded, behind its half of the card.
+  const big = $derived(Math.round(compact ? Math.max(90, Math.min(h * 1.5, w * 0.5)) : Math.max(120, Math.min(h * 1.2, w * 0.62))));
 
   const statusText = $derived(st === 'IN' ? 'LIVE' : st === 'POST' ? 'Final' : st === 'PRE' ? (A.kickoff_in ? String(A.kickoff_in) : 'Upcoming') : st === 'BYE' ? 'Bye week' : 'No game');
   const title = $derived(t(props.name) || A.league_name || A.league || '');
@@ -143,6 +147,19 @@
 
 <div class="tt" class:compact style="--c:{accent}">
   <div class="glow"></div>
+  {#if !dead && bglogos}
+    <div class="bg" aria-hidden="true">
+      {#if st === 'BYE' || st === 'NOT_FOUND'}
+        {#if idleLogo}<div class="half l" style="--tc:{accent}"><img src={idleLogo} alt="" style="width:{big}px;height:{big}px;margin-left:-{Math.round(big * 0.14)}px" onerror={() => (bad[idleLogo] = true)} /></div>{/if}
+      {:else}
+        {#each pair as s, i (s.p)}
+          <div class="half {i ? 'r' : 'l'}" style="--tc:{colors[i]}">
+            {#if s.logo && !bad[s.logo]}<img src={s.logo} alt="" style="width:{big}px;height:{big}px;{i ? 'margin-right' : 'margin-left'}:-{Math.round(big * 0.14)}px" onerror={() => (bad[s.logo] = true)} />{/if}
+          </div>
+        {/each}
+      {/if}
+    </div>
+  {/if}
   {#if dead}
     <div class="empty"><Icon icon="mdi:scoreboard-outline" size="1.8em" /><span>{e ? 'Team Tracker sensor unavailable' : 'Pick a Team Tracker sensor'}</span></div>
   {:else if st === 'BYE' || st === 'NOT_FOUND'}
@@ -217,6 +234,13 @@
 <style>
   .tt { position: relative; height: 100%; display: flex; flex-direction: column; gap: 6px; isolation: isolate; min-width: 0; }
   .glow { position: absolute; inset: calc(var(--pad) * -1); z-index: -1; background: radial-gradient(90% 70% at 50% 35%, color-mix(in srgb, var(--c) 14%, transparent), transparent 70%); pointer-events: none; }
+  .bg { position: absolute; inset: calc(var(--pad) * -1); z-index: -1; pointer-events: none; overflow: hidden; border-radius: inherit; }
+  .half { position: absolute; top: 0; bottom: 0; width: 62%; display: flex; align-items: center; background: radial-gradient(85% 120% at var(--x) 50%, color-mix(in srgb, var(--tc) 24%, transparent), transparent 72%); }
+  .half.l { left: 0; --x: 0%; justify-content: flex-start; }
+  .half.r { right: 0; --x: 100%; justify-content: flex-end; }
+  .half img { flex: none; object-fit: contain; opacity: .16; filter: saturate(1.15); }
+  .half.l img { -webkit-mask-image: linear-gradient(to right, #000 30%, transparent 92%); mask-image: linear-gradient(to right, #000 30%, transparent 92%); }
+  .half.r img { -webkit-mask-image: linear-gradient(to left, #000 30%, transparent 92%); mask-image: linear-gradient(to left, #000 30%, transparent 92%); }
   .head { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: .8em; }
   .league { flex: 1; min-width: 0; font-weight: 600; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .lgl { width: 1.5em; height: 1.5em; object-fit: contain; }
@@ -233,12 +257,12 @@
   .solo { object-fit: contain; }
   .empty small { font-size: .75em; opacity: .8; }
   .ball { position: absolute; right: -4px; bottom: -3px; display: grid; place-items: center; width: 1.5em; height: 1.5em; border-radius: 50%; background: rgba(0,0,0,.6); color: #ffb547; }
-  .tn { font-weight: 700; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tn { text-shadow: 0 1px 8px rgba(0,0,0,.35); font-weight: 700; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .team.win .tn { color: var(--tc); }
   .rk { font-weight: 500; font-size: .8em; color: var(--muted); margin-right: .3em; }
   .rec { font-size: .75em; color: var(--muted); }
   .mid { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 0 2px; min-width: 3.2em; }
-  .score { font-size: 2em; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; display: flex; gap: .25em; align-items: baseline; white-space: nowrap; }
+  .score { text-shadow: 0 1px 10px rgba(0,0,0,.4); font-size: 2em; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; display: flex; gap: .25em; align-items: baseline; white-space: nowrap; }
   .score em { font-style: normal; color: var(--muted); font-weight: 400; }
   .score .dim { color: var(--muted); font-weight: 500; }
   .clk { font-size: .85em; color: var(--c); font-weight: 600; white-space: nowrap; }
