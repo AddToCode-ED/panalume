@@ -221,6 +221,8 @@ function normalise(c) {
   c.hold ??= {};
   // Cameras imported from ha-fusion were saved as "more-info"; they now open full screen.
   if (c.type === 'camera' && c.tap.action === 'more-info' && !c.tap.entity) delete c.tap.action;
+  // Weather cards from before the art background and colour icons get them (untick to go back).
+  if (c.type === 'weather') { c.props.art ??= true; c.props.animate ??= true; c.props.iconstyle ??= 'colour'; }
   return c;
 }
 
