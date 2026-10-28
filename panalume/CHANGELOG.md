@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.38.0
+
+- **Team tracker: a livelier card.** Each team's logo now appears huge and faded behind its half of the card, with a soft wash of the team's colours, in front of the usual small logo. It also shows behind the league logo on bye weeks and when no game is found. Untick **Large faded logos and team colours in the background** in the card's settings to go back to the plain look (it needs **Team logos** on).
+- **Weather card: colour icons and a sky that matches the hour.** The current weather and every forecast day now use full-colour icons (a moon after dark, sun behind clouds, rain, snow, storms, fog, wind), and the card gets a quiet, minimal picture of the sky behind it: the sun or moon where it really is right now, the colours of dawn, day, dusk or night, and clouds, rain, snow, fog or lightning to match the conditions. It is drawn in the card itself, so nothing is downloaded. Existing weather cards get it automatically; in the card's settings, untick **Weather art background** or **Gentle movement** (kinder to old tablets), or set **Icons** back to **Simple line**.
+
 ## 0.37.1
 
 - **Team tracker: no game / bye week.** These now show the league's logo (the sensor has no team logo then) with the league name, and "No upcoming games through <date>" instead of the raw message from the service.

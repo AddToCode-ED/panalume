@@ -25,12 +25,17 @@ Added from **Add → Energy**; entities are auto-detected for the Octopus Energy
 - **Electric vehicle** — battery ring vs target, range, charging, plug/lock, climate.
 - **Power flow** — solar / grid / battery / home / EV.
 
+## Weather card
+
+Colour icons, and a minimal sky picture behind the card that follows the real sun (it uses `sun.sun` when you have it, otherwise the clock) and the current conditions. Settings: **Weather art background**, **Gentle movement in the art** (turn off on slow tablets) and **Icons** (full colour or simple line).
+
 ## Team tracker (sports scores)
 
 Needs the [Team Tracker](https://github.com/vasqued2/ha-teamtracker) integration (HACS), which creates one sensor per team you follow. Add the **Team tracker** card (Info) and pick that sensor; it's chosen for you if you have one.
 
 - Before the game: date and time, venue, TV channel and odds. During it: score, period and clock, and per sport the ball, down and distance, baseball runners and count, last play and win probability. After it: the final score.
 - Use the eye chips in the card's settings to hide the league, records, live details, win probability or venue / TV / odds.
+- **Large faded logos and team colours in the background** (on by default) put each team's logo big and translucent behind its half of the card.
 - **Team logos** are loaded from the sports service's website (ESPN), which is the one place this card goes outside your home network. Untick it to avoid that; the sport's icon is shown instead.
 
 ## Wyze cameras (and other go2rtc cameras)
