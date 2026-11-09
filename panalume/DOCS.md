@@ -36,6 +36,7 @@ Needs the [Team Tracker](https://github.com/vasqued2/ha-teamtracker) integration
 - Before the game: date and time, venue, TV channel and odds. During it: score, period and clock, and per sport the ball, down and distance, baseball runners and count, last play and win probability. After it: the final score.
 - Use the eye chips in the card's settings to hide the league, records, live details, win probability or venue / TV / odds.
 - **Large faded logos and team colours in the background** (on by default) put each team's logo big and translucent behind its half of the card.
+- **Golf:** shows the tournament and a top-10 leaderboard (Team Tracker supplies the top 10). Set the sensor to the player to follow, or `*` for the current tournament, and that player is highlighted if they are in the top 10. **Golf: players on the leaderboard** sets how many to show (3 to 10).
 - **Team logos** are loaded from the sports service's website (ESPN), which is the one place this card goes outside your home network. Untick it to avoid that; the sport's icon is shown instead.
 
 ## Wyze cameras (and other go2rtc cameras)

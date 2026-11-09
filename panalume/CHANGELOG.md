@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.39.0
+
+- **Team tracker: golf leaderboard.** For golf (PGA and the other tours) the card now shows the tournament name, the round and venue, and the top 10 players with their positions (ties as T3) and scores, under-par scores in green, and the player your sensor tracks highlighted. Wide cards split the list into two columns, short cards show fewer players, and a new **Golf: players on the leaderboard** setting limits it to 3 to 10. Before the tournament it shows its name, start time, venue and TV channel. Team Tracker only provides the top 10, so that is the most it can show. If the leaderboard can't be read, the card falls back to the leader and runner-up as before.
+
 ## 0.38.0
 
 - **Team tracker: a livelier card.** Each team's logo now appears huge and faded behind its half of the card, with a soft wash of the team's colours, in front of the usual small logo. It also shows behind the league logo on bye weeks and when no game is found. Untick **Large faded logos and team colours in the background** in the card's settings to go back to the plain look (it needs **Team logos** on).
