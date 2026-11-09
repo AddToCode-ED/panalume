@@ -9,7 +9,7 @@
   export const meta = {
     type: 'team-tracker', name: 'Team tracker', icon: 'mdi:scoreboard', category: 'Info',
     size: { w: 380, h: 230 }, tap: 'more-info', hold: 'more-info',
-    defaults: { entity: '', logos: true, bglogos: true },
+    defaults: { entity: '', logos: true, bglogos: true, players: 10 },
     autofill,
     sections: [
       { key: 'league', label: 'League' }, { key: 'records', label: 'Records and rankings' },
@@ -20,6 +20,7 @@
       { key: 'entity', label: 'Team Tracker sensor', type: 'entity', domain: 'sensor' },
       { key: 'name', label: 'Title (blank: the league)', type: 'text' },
       { key: 'logos', label: 'Team logos (loaded from the sports service’s website, e.g. ESPN)', type: 'bool' },
+      { key: 'players', label: 'Golf: players on the leaderboard (3 to 10)', type: 'number' },
       { key: 'bglogos', label: 'Large faded logos and team colours in the background', type: 'bool' },
     ],
   };
@@ -120,7 +121,38 @@
   const num = (v) => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
   const bases = $derived([!!A.on_second, !!A.on_third, !!A.on_first]);
 
+  // Golf (PGA etc.): the sensor lists the top 10 in last_play, e.g.
+  // "1. S. Scheffler (-25),   2. R. McIlroy (-24),   T3. ...", and the tournament in event_name.
+  const golf = $derived(sport === 'golf');
+  const board = $derived.by(() => {
+    if (!golf || (st !== 'IN' && st !== 'POST')) return [];
+    const out = [], re = /(T?\d+)\.\s+(.+?)\s+\(([^()]*)\)\s*,?/g;
+    const txt = String(A.last_play || '');
+    let m;
+    while ((m = re.exec(txt))) out.push({ pos: m[1], name: m[2].trim(), score: m[3].trim() || '-' });
+    return out;
+  });
+  const lastName = (n) => String(n || '').toLowerCase().replace(/[^a-z\s'-]/g, ' ').trim().split(/\s+/).pop();
+  const initial = (n) => String(n || '').trim().charAt(0).toLowerCase();
+  // The player the sensor tracks, to highlight in the list.
+  const mine = (n) => !!me.name && lastName(n) === lastName(me.name) && initial(n) === initial(me.name);
+  const under = (sc) => /^[-\u2212]\s*\d/.test(sc);
   const compact = $derived(h < 150);
+  const golfBoard = $derived(golf && board.length >= 2 && !compact);
+  const golfPre = $derived(golf && st === 'PRE' && !compact);
+  const cols = $derived(w >= 460 ? 2 : 1);
+  const ROW = 25;
+  const fit = $derived(Math.max(0, Math.floor((h - 92) / ROW)) * cols);
+  const wanted = $derived(Math.max(3, Math.min(10, Math.round(Number(props.players)) || 10)));
+  const shown = $derived(board.slice(0, Math.max(2, Math.min(wanted, fit || 2))));
+  const perCol = $derived(Math.ceil(shown.length / cols));
+  const roundText = $derived.by(() => {
+    if (st === 'POST') return 'Final';
+    const q = A.quarter;
+    if (q == null || q === '') return '';
+    return /^\d+$/.test(String(q)) ? `Round ${q}` : String(q);
+  });
+  const tourSub = $derived([st === 'PRE' ? '' : roundText, venue, st !== 'POST' ? A.tv_network : ''].filter(Boolean).join(' \u00b7 '));
   const wide = $derived(w >= 330);
   const tall = $derived(h >= 215);
   const logo = $derived(compact ? Math.max(28, Math.min(44, h - 36)) : Math.max(36, Math.min(76, h * 0.27, w * 0.17)));
@@ -147,7 +179,7 @@
 
 <div class="tt" class:compact style="--c:{accent}">
   <div class="glow"></div>
-  {#if !dead && bglogos}
+  {#if !dead && bglogos && !golfBoard && !golfPre}
     <div class="bg" aria-hidden="true">
       {#if st === 'BYE' || st === 'NOT_FOUND'}
         {#if idleLogo}<div class="half l" style="--tc:{accent}"><img src={idleLogo} alt="" style="width:{big}px;height:{big}px;margin-left:-{Math.round(big * 0.14)}px" onerror={() => (bad[idleLogo] = true)} /></div>{/if}
@@ -169,6 +201,28 @@
       {#if !compact && show('league') && (A.league || A.league_name)}<small>{A.league || A.league_name}</small>{/if}
       <span>{idleText}</span>
     </div>
+  {:else if golfBoard || golfPre}
+    <div class="head">
+      {#if show('league')}
+        {#if logos && A.league_logo && !bad[A.league_logo]}<img class="lgl" src={A.league_logo} alt="" onerror={() => (bad[A.league_logo] = true)} />{/if}
+        <span class="league">{A.league_name || A.league || ''}</span>
+      {:else}<span class="league"></span>{/if}
+      <span class="chip {st}">{#if st === 'IN'}<i class="dot"></i>{/if}{statusText}</span>
+    </div>
+    <div class="tour" class:solo-tour={golfPre}>
+      <div class="ttl">{t(props.name) || A.event_name || A.league_name || 'Tournament'}</div>
+      {#if golfPre && when}<div class="whn">{when.day} &middot; {when.hm}</div>{/if}
+      {#if tourSub}<div class="tsub">{tourSub}</div>{/if}
+    </div>
+    {#if golfBoard}
+      <div class="lb" style="grid-template-columns:repeat({cols}, minmax(0, 1fr));grid-template-rows:repeat({perCol}, auto)">
+        {#each shown as r, i (i)}
+          <div class="lrow" class:me={mine(r.name)} class:lead={i === 0}>
+            <span class="pos">{r.pos}</span><span class="pn">{r.name}</span><span class="ps" class:u={under(r.score)}>{r.score}</span>
+          </div>
+        {/each}
+      </div>
+    {/if}
   {:else}
     {#if !compact}
       <div class="head">
@@ -213,7 +267,7 @@
           <span>{Math.round(probs.r * 100)}%</span>
         </div>
       {/if}
-      {#if live && A.last_play && tall}<div class="play">{A.last_play}</div>{/if}
+      {#if live && A.last_play && tall && !golf}<div class="play">{A.last_play}</div>{/if}
       {#if info.length && (tall || st !== 'IN')}<div class="info">{info.join(' · ')}</div>{/if}
     {/if}
   {/if}
@@ -241,6 +295,21 @@
   .half img { flex: none; object-fit: contain; opacity: .16; filter: saturate(1.15); }
   .half.l img { -webkit-mask-image: linear-gradient(to right, #000 30%, transparent 92%); mask-image: linear-gradient(to right, #000 30%, transparent 92%); }
   .half.r img { -webkit-mask-image: linear-gradient(to left, #000 30%, transparent 92%); mask-image: linear-gradient(to left, #000 30%, transparent 92%); }
+  .tour { text-align: center; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .tour.solo-tour { flex: 1; justify-content: center; gap: 4px; }
+  .ttl { font-size: 1.25em; font-weight: 700; line-height: 1.15; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; text-shadow: 0 1px 8px rgba(0,0,0,.35); }
+  .solo-tour .ttl { font-size: 1.6em; }
+  .whn { font-size: 1.1em; font-weight: 600; color: var(--c); }
+  .tsub { font-size: .78em; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lb { flex: 1; min-height: 0; display: grid; grid-auto-flow: column; column-gap: 18px; align-content: start; margin-top: 2px; }
+  .lrow { display: flex; align-items: baseline; gap: 8px; min-width: 0; height: 25px; padding: 0 7px; border-radius: 8px; font-size: .92em; align-self: center; }
+  .lrow:nth-child(odd) { background: rgba(255,255,255,.035); }
+  .lrow.lead { font-weight: 700; }
+  .lrow.me { background: color-mix(in srgb, var(--c) 22%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 45%, transparent); font-weight: 700; }
+  .pos { flex: none; width: 2.1em; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .pn { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ps { flex: none; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .ps.u { color: #6ee7a0; }
   .head { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: .8em; }
   .league { flex: 1; min-width: 0; font-weight: 600; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .lgl { width: 1.5em; height: 1.5em; object-fit: contain; }
